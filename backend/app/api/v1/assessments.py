@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from pydantic import BaseModel
+import datetime
 from app.database import get_db
-from app.models.schema import Assessment, Signal
+from app.models.schema import Assessment, Signal, Escalation
 from app.models.schemas_api import AssessmentResponse, AssessmentCreate, AssessmentUpdate
 
 router = APIRouter()
@@ -32,11 +34,71 @@ def update_assessment(assessment_id: str, update: AssessmentUpdate, db: Session 
     db_assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    
+
     update_data = update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_assessment, key, value)
-    
+
+    db.commit()
+    db.refresh(db_assessment)
+    return db_assessment
+
+class CompleteAssessmentRequest(BaseModel):
+    outcome: str  # 'archive' or 'escalate'
+    justification: str
+
+@router.post("/{assessment_id}/complete", response_model=AssessmentResponse)
+def complete_assessment(
+    assessment_id: str,
+    request: CompleteAssessmentRequest,
+    db: Session = Depends(get_db)
+):
+    """Complete an assessment and optionally escalate to director"""
+    # Get assessment
+    db_assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
+    if not db_assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    # Get associated signal
+    signal = db.query(Signal).filter(Signal.id == db_assessment.signal_id).first()
+    if not signal:
+        raise HTTPException(status_code=404, detail="Signal not found")
+
+    # Update assessment status
+    db_assessment.status = "Completed"
+    db_assessment.outcome_decision = request.outcome
+    db_assessment.outcome_justification = request.justification
+    db_assessment.completed_at = datetime.datetime.utcnow()
+
+    # Handle escalation
+    if request.outcome == "escalate":
+        # Determine priority based on signal priority score
+        priority = "Medium"
+        if signal.priority_score and signal.priority_score >= 85:
+            priority = "Critical"
+        elif signal.priority_score and signal.priority_score >= 70:
+            priority = "High"
+
+        # Create escalation
+        escalation = Escalation(
+            signal_id=signal.id,
+            assessment_id=db_assessment.id,
+            escalation_level="Director",
+            priority=priority,
+            escalation_reason=request.justification,
+            recommended_actions=[],
+            director_status="Pending Review",
+            escalated_by=db_assessment.assigned_to,
+            escalated_at=datetime.datetime.utcnow()
+        )
+        db.add(escalation)
+
+        # Update signal status
+        signal.current_status = "Escalated"
+    elif request.outcome == "archive":
+        # Archive signal
+        signal.current_status = "Archived"
+
     db.commit()
     db.refresh(db_assessment)
     return db_assessment
