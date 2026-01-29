@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Date, ForeignKey, Text, JSON, UUID
+from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Date, ForeignKey, Text, JSON, UUID, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 import uuid
 import datetime
@@ -116,3 +117,41 @@ class Escalation(Base):
 
     signal = relationship("Signal", back_populates="escalations")
     assessment = relationship("Assessment", back_populates="escalations")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String(100), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=False)
+    role = Column(String(50), nullable=False, index=True)  # Analyst, Senior Analyst, Director, Admin
+    department = Column(String(100))
+    position = Column(String(255))
+    phone = Column(String(50))
+    mobile = Column(String(50))
+    password_hash = Column(String(255), nullable=False)
+    mfa_enabled = Column(Boolean, default=False)
+    last_login = Column(DateTime(timezone=True))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    action_type = Column(String(100), nullable=False)
+    entity_type = Column(String(50))
+    entity_id = Column(UUID(as_uuid=True))
+    user_id = Column(UUID(as_uuid=True), index=True)
+    user_role = Column(String(50))
+    description = Column(Text)
+    old_value = Column(JSONB)
+    new_value = Column(JSONB)
+    ip_address = Column(String)
+    timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index('idx_audit_entity', 'entity_type', 'entity_id'),
+    )
