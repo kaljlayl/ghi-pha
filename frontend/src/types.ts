@@ -82,3 +82,19 @@ export type DirectorDecision = {
   actions_taken: string[];
   notes: string;
 };
+
+export type Notification = {
+  id: string;
+  recipient_id: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  action_url?: string | null;
+  signal_id?: string | null;
+  assessment_id?: string | null;
+  escalation_id?: string | null;
+  read: boolean;
+  read_at?: string | null;
+  priority: string;
+  created_at: string;
+};

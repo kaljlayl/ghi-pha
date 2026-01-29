@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.schema import Assessment, Signal, Escalation, User
 from app.models.schemas_api import AssessmentResponse, AssessmentCreate, AssessmentUpdate
 from app.auth import get_optional_current_user
+from app.services import notification_service
 
 router = APIRouter()
 
@@ -116,6 +117,10 @@ def complete_assessment(
             escalated_at=datetime.datetime.utcnow()
         )
         db.add(escalation)
+        db.flush()  # Ensure escalation has an ID
+
+        # Notify directors of new escalation
+        notification_service.notify_escalation_created(escalation, db)
 
         # Update signal status
         signal.current_status = "Escalated"

@@ -137,6 +137,28 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    recipient_id = Column(UUID(as_uuid=True), nullable=False)
+    notification_type = Column(String(100), nullable=False)
+    title = Column(String(500), nullable=False)
+    message = Column(Text, nullable=False)
+    action_url = Column(Text)
+    signal_id = Column(UUID(as_uuid=True), ForeignKey("signals.id"))
+    assessment_id = Column(UUID(as_uuid=True), ForeignKey("assessments.id"))
+    escalation_id = Column(UUID(as_uuid=True), ForeignKey("escalations.id"))
+    read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True))
+    priority = Column(String(20), default="Normal")
+    created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_notifications_recipient_read', 'recipient_id', 'read'),
+        Index('idx_notifications_type', 'notification_type'),
+    )
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
 

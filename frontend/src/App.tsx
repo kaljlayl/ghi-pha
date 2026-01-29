@@ -5,6 +5,7 @@ import Triage from './views/Triage';
 import AssessmentView from './views/AssessmentView';
 import EscalationView from './views/EscalationView';
 import LoginView from './views/LoginView';
+import NotificationBell from './components/NotificationBell';
 import { useLiveSignals } from './hooks/useLiveSignals';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -164,7 +165,7 @@ function AppContent() {
             </div>
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex gap-6 items-center">
             <div className="px-5 py-2.5 glass-panel rounded-xl flex items-center gap-3 border-ghi-critical/20 group cursor-pointer hover:border-ghi-critical/50 transition-all">
               <div className="w-2 h-2 rounded-full bg-ghi-critical pulse-critical shadow-[0_0_10px_#FF3131]"></div>
               <div>
@@ -179,6 +180,7 @@ function AppContent() {
                 <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Triage Queue</p>
               </div>
             </div>
+            <NotificationBell />
           </div>
         </header>
 

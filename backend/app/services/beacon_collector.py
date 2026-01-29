@@ -12,6 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.schema import Signal
+from app.services import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -323,6 +324,11 @@ class BeaconCollector:
     def _create_signal(self, event_data: Dict[str, Any]) -> None:
         signal = Signal(**event_data)
         self.db.add(signal)
+        self.db.flush()  # Ensure signal has an ID
+
+        # Notify analysts of critical signals
+        if signal.priority_score and signal.priority_score >= 85:
+            notification_service.notify_new_critical_signal(signal, self.db)
 
     def _first_text(self, node: Any, selectors: Iterable[str]) -> Optional[str]:
         for selector in selectors:

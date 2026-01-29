@@ -54,9 +54,10 @@ def health_check():
     return {"status": "healthy"}
 
 # API Routers
-from app.api.v1 import signals, assessments, escalations, auth
+from app.api.v1 import signals, assessments, escalations, auth, notifications
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(signals.router, prefix="/api/v1/signals", tags=["Signals"])
 app.include_router(assessments.router, prefix="/api/v1/assessments", tags=["Assessments"])
 app.include_router(escalations.router, prefix="/api/v1/escalations", tags=["Escalations"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
