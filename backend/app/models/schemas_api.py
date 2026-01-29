@@ -53,6 +53,13 @@ class AssessmentUpdate(BaseModel):
     ihr_question_4: Optional[bool] = None
     ihr_question_4_notes: Optional[str] = None
     ihr_decision: Optional[str] = None
+    rra_hazard_assessment: Optional[Any] = None
+    rra_exposure_assessment: Optional[Any] = None
+    rra_context_assessment: Optional[Any] = None
+    rra_overall_risk: Optional[str] = None
+    rra_confidence_level: Optional[str] = None
+    rra_key_uncertainties: Optional[List[str]] = None
+    rra_recommendations: Optional[List[str]] = None
     status: Optional[str] = None
     outcome_decision: Optional[str] = None
     outcome_justification: Optional[str] = None

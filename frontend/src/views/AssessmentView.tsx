@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSignal, createAssessment, updateAssessment, completeAssessment } from '../api/ghi';
 import type { Signal, Assessment } from '../types';
+import RRAForm from '../components/RRAForm';
 
 const AssessmentView = () => {
   const { signalId } = useParams<{ signalId: string }>();
@@ -13,6 +14,9 @@ const AssessmentView = () => {
 
   // Assessment state
   const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [assessmentType, setAssessmentType] = useState<'IHR Annex 2' | 'RRA'>('IHR Annex 2');
+
+  // IHR state
   const [ihrQuestion1, setIhrQuestion1] = useState<boolean | null>(null);
   const [ihrQuestion1Notes, setIhrQuestion1Notes] = useState('');
   const [ihrQuestion2, setIhrQuestion2] = useState<boolean | null>(null);
@@ -21,6 +25,9 @@ const AssessmentView = () => {
   const [ihrQuestion3Notes, setIhrQuestion3Notes] = useState('');
   const [ihrQuestion4, setIhrQuestion4] = useState<boolean | null>(null);
   const [ihrQuestion4Notes, setIhrQuestion4Notes] = useState('');
+
+  // RRA state
+  const [rraFormData, setRRAFormData] = useState<any>({});
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -52,6 +59,9 @@ const AssessmentView = () => {
   // Load existing assessment if signal has one
   useEffect(() => {
     if (assessment) {
+      setAssessmentType(assessment.assessment_type);
+
+      // Load IHR data
       setIhrQuestion1(assessment.ihr_question_1 ?? null);
       setIhrQuestion1Notes(assessment.ihr_question_1_notes ?? '');
       setIhrQuestion2(assessment.ihr_question_2 ?? null);
@@ -60,6 +70,29 @@ const AssessmentView = () => {
       setIhrQuestion3Notes(assessment.ihr_question_3_notes ?? '');
       setIhrQuestion4(assessment.ihr_question_4 ?? null);
       setIhrQuestion4Notes(assessment.ihr_question_4_notes ?? '');
+
+      // Load RRA data if available
+      if (assessment.rra_hazard_assessment || assessment.rra_exposure_assessment || assessment.rra_context_assessment) {
+        setRRAFormData({
+          pathogenCharacteristics: assessment.rra_hazard_assessment?.pathogenCharacteristics || '',
+          severityCFR: assessment.rra_hazard_assessment?.severityCFR || null,
+          transmissibility: assessment.rra_hazard_assessment?.transmissibility || [],
+          countermeasures: assessment.rra_hazard_assessment?.countermeasures || [],
+          evidenceQuality: assessment.rra_hazard_assessment?.evidenceQuality || null,
+          populationAtRisk: assessment.rra_exposure_assessment?.populationAtRisk || '',
+          exposurePathways: assessment.rra_exposure_assessment?.exposurePathways || [],
+          geographicSpread: assessment.rra_exposure_assessment?.geographicSpread || null,
+          attackRate: assessment.rra_exposure_assessment?.attackRate || null,
+          healthSystemCapacity: assessment.rra_context_assessment?.healthSystemCapacity || '',
+          responseCapabilities: assessment.rra_context_assessment?.responseCapabilities || '',
+          availableResources: assessment.rra_context_assessment?.availableResources || '',
+          keyConstraints: assessment.rra_context_assessment?.keyConstraints || '',
+          overallRisk: assessment.rra_overall_risk || null,
+          confidenceLevel: assessment.rra_confidence_level || null,
+          keyUncertainties: assessment.rra_key_uncertainties || [],
+          recommendations: assessment.rra_recommendations || [],
+        });
+      }
     }
   }, [assessment]);
 
@@ -68,22 +101,54 @@ const AssessmentView = () => {
 
     try {
       setSaving(true);
-      const formData = {
-        ihr_question_1: ihrQuestion1,
-        ihr_question_1_notes: ihrQuestion1Notes || null,
-        ihr_question_2: ihrQuestion2,
-        ihr_question_2_notes: ihrQuestion2Notes || null,
-        ihr_question_3: ihrQuestion3,
-        ihr_question_3_notes: ihrQuestion3Notes || null,
-        ihr_question_4: ihrQuestion4,
-        ihr_question_4_notes: ihrQuestion4Notes || null,
-      };
+
+      let formData: any = {};
+
+      if (assessmentType === 'IHR Annex 2') {
+        formData = {
+          ihr_question_1: ihrQuestion1,
+          ihr_question_1_notes: ihrQuestion1Notes || null,
+          ihr_question_2: ihrQuestion2,
+          ihr_question_2_notes: ihrQuestion2Notes || null,
+          ihr_question_3: ihrQuestion3,
+          ihr_question_3_notes: ihrQuestion3Notes || null,
+          ihr_question_4: ihrQuestion4,
+          ihr_question_4_notes: ihrQuestion4Notes || null,
+        };
+      } else {
+        // RRA
+        formData = {
+          rra_hazard_assessment: {
+            pathogenCharacteristics: rraFormData.pathogenCharacteristics,
+            severityCFR: rraFormData.severityCFR,
+            transmissibility: rraFormData.transmissibility,
+            countermeasures: rraFormData.countermeasures,
+            evidenceQuality: rraFormData.evidenceQuality,
+          },
+          rra_exposure_assessment: {
+            populationAtRisk: rraFormData.populationAtRisk,
+            exposurePathways: rraFormData.exposurePathways,
+            geographicSpread: rraFormData.geographicSpread,
+            attackRate: rraFormData.attackRate,
+          },
+          rra_context_assessment: {
+            healthSystemCapacity: rraFormData.healthSystemCapacity,
+            responseCapabilities: rraFormData.responseCapabilities,
+            availableResources: rraFormData.availableResources,
+            keyConstraints: rraFormData.keyConstraints,
+          },
+          rra_overall_risk: rraFormData.overallRisk,
+          rra_confidence_level: rraFormData.confidenceLevel,
+          rra_key_uncertainties: rraFormData.keyUncertainties,
+          rra_recommendations: rraFormData.recommendations,
+        };
+      }
 
       if (assessment) {
         const updated = await updateAssessment(assessment.id, formData);
         setAssessment(updated);
       } else {
-        const newAssessment = await createAssessment(signalId, 'IHR Annex 2');
+        const newAssessment = await createAssessment(signalId, assessmentType);
         const updated = await updateAssessment(newAssessment.id, formData);
         setAssessment(updated);
       }
@@ -242,159 +307,194 @@ const AssessmentView = () => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-ghi-blue/5 blur-3xl rounded-full -mr-32 -mt-32"></div>
 
         <div className="relative z-10">
+          {/* Assessment Type Selector */}
+          <div className="mb-8 flex gap-3">
+            <button
+              onClick={() => !assessment && setAssessmentType('IHR Annex 2')}
+              disabled={!!assessment}
+              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                assessmentType === 'IHR Annex 2'
+                  ? 'bg-ghi-blue/20 border-2 border-ghi-blue/50 text-ghi-blue shadow-[0_0_20px_rgba(77,159,255,0.15)]'
+                  : 'bg-slate-800/30 border border-slate-700/30 text-slate-400 hover:bg-slate-800/50'
+              } ${assessment ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              IHR Annex 2
+            </button>
+            <button
+              onClick={() => !assessment && setAssessmentType('RRA')}
+              disabled={!!assessment}
+              className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                assessmentType === 'RRA'
+                  ? 'bg-purple-400/20 border-2 border-purple-400/50 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.15)]'
+                  : 'bg-slate-800/30 border border-slate-700/30 text-slate-400 hover:bg-slate-800/50'
+              } ${assessment ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              RRA
+            </button>
+          </div>
+
           <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wider flex items-center gap-3">
-            <span className="w-2 h-2 rounded-full bg-ghi-blue shadow-[0_0_12px_#4D9FFF]"></span>
-            IHR Annex 2 Assessment
+            <span className={`w-2 h-2 rounded-full shadow-[0_0_12px] ${
+              assessmentType === 'IHR Annex 2' ? 'bg-ghi-blue shadow-ghi-blue' : 'bg-purple-400 shadow-purple-400'
+            }`}></span>
+            {assessmentType === 'IHR Annex 2' ? 'IHR Annex 2 Assessment' : 'Rapid Risk Assessment (RRA)'}
           </h2>
           <p className="text-slate-400 text-xs mb-10 font-medium tracking-wide">
-            Decision instrument for the assessment and notification of events that may constitute a PHEIC
+            {assessmentType === 'IHR Annex 2'
+              ? 'Decision instrument for the assessment and notification of events that may constitute a PHEIC'
+              : 'Comprehensive risk assessment covering hazard, exposure, context, and summary'}
           </p>
 
-          <div className="space-y-8">
-            {/* Question 1 */}
-            <div className="border-l-2 border-ghi-teal/30 pl-6 py-2">
-              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
-                1. Is the public health impact of the event serious?
-              </h3>
-              <div className="flex gap-6 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q1"
-                    checked={ihrQuestion1 === true}
-                    onChange={() => setIhrQuestion1(true)}
-                    className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">Yes</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q1"
-                    checked={ihrQuestion1 === false}
-                    onChange={() => setIhrQuestion1(false)}
-                    className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">No</span>
-                </label>
+          {/* Conditional Form Rendering */}
+          {assessmentType === 'IHR Annex 2' ? (
+            <div className="space-y-8">
+              {/* Question 1 */}
+              <div className="border-l-2 border-ghi-teal/30 pl-6 py-2">
+                <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                  1. Is the public health impact of the event serious?
+                </h3>
+                <div className="flex gap-6 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q1"
+                      checked={ihrQuestion1 === true}
+                      onChange={() => setIhrQuestion1(true)}
+                      className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">Yes</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q1"
+                      checked={ihrQuestion1 === false}
+                      onChange={() => setIhrQuestion1(false)}
+                      className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">No</span>
+                  </label>
+                </div>
+                <textarea
+                  value={ihrQuestion1Notes}
+                  onChange={(e) => setIhrQuestion1Notes(e.target.value)}
+                  placeholder="Notes and justification..."
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-teal/50 focus:ring-1 focus:ring-ghi-teal/50 resize-none"
+                  rows={3}
+                />
               </div>
-              <textarea
-                value={ihrQuestion1Notes}
-                onChange={(e) => setIhrQuestion1Notes(e.target.value)}
-                placeholder="Notes and justification..."
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-teal/50 focus:ring-1 focus:ring-ghi-teal/50 resize-none"
-                rows={3}
-              />
-            </div>
 
-            {/* Question 2 */}
-            <div className="border-l-2 border-ghi-blue/30 pl-6 py-2">
-              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
-                2. Is the event unusual or unexpected?
-              </h3>
-              <div className="flex gap-6 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q2"
-                    checked={ihrQuestion2 === true}
-                    onChange={() => setIhrQuestion2(true)}
-                    className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">Yes</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q2"
-                    checked={ihrQuestion2 === false}
-                    onChange={() => setIhrQuestion2(false)}
-                    className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">No</span>
-                </label>
+              {/* Question 2 */}
+              <div className="border-l-2 border-ghi-blue/30 pl-6 py-2">
+                <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                  2. Is the event unusual or unexpected?
+                </h3>
+                <div className="flex gap-6 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q2"
+                      checked={ihrQuestion2 === true}
+                      onChange={() => setIhrQuestion2(true)}
+                      className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">Yes</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q2"
+                      checked={ihrQuestion2 === false}
+                      onChange={() => setIhrQuestion2(false)}
+                      className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">No</span>
+                  </label>
+                </div>
+                <textarea
+                  value={ihrQuestion2Notes}
+                  onChange={(e) => setIhrQuestion2Notes(e.target.value)}
+                  placeholder="Notes and justification..."
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-blue/50 focus:ring-1 focus:ring-ghi-blue/50 resize-none"
+                  rows={3}
+                />
               </div>
-              <textarea
-                value={ihrQuestion2Notes}
-                onChange={(e) => setIhrQuestion2Notes(e.target.value)}
-                placeholder="Notes and justification..."
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-blue/50 focus:ring-1 focus:ring-ghi-blue/50 resize-none"
-                rows={3}
-              />
-            </div>
 
-            {/* Question 3 */}
-            <div className="border-l-2 border-amber-400/30 pl-6 py-2">
-              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
-                3. Is there a significant risk of international spread?
-              </h3>
-              <div className="flex gap-6 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q3"
-                    checked={ihrQuestion3 === true}
-                    onChange={() => setIhrQuestion3(true)}
-                    className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">Yes</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q3"
-                    checked={ihrQuestion3 === false}
-                    onChange={() => setIhrQuestion3(false)}
-                    className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">No</span>
-                </label>
+              {/* Question 3 */}
+              <div className="border-l-2 border-amber-400/30 pl-6 py-2">
+                <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                  3. Is there a significant risk of international spread?
+                </h3>
+                <div className="flex gap-6 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q3"
+                      checked={ihrQuestion3 === true}
+                      onChange={() => setIhrQuestion3(true)}
+                      className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">Yes</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q3"
+                      checked={ihrQuestion3 === false}
+                      onChange={() => setIhrQuestion3(false)}
+                      className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">No</span>
+                  </label>
+                </div>
+                <textarea
+                  value={ihrQuestion3Notes}
+                  onChange={(e) => setIhrQuestion3Notes(e.target.value)}
+                  placeholder="Notes and justification..."
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/50 resize-none"
+                  rows={3}
+                />
               </div>
-              <textarea
-                value={ihrQuestion3Notes}
-                onChange={(e) => setIhrQuestion3Notes(e.target.value)}
-                placeholder="Notes and justification..."
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/50 resize-none"
-                rows={3}
-              />
-            </div>
 
-            {/* Question 4 */}
-            <div className="border-l-2 border-red-400/30 pl-6 py-2">
-              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
-                4. Is there a significant risk of international travel or trade restrictions?
-              </h3>
-              <div className="flex gap-6 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q4"
-                    checked={ihrQuestion4 === true}
-                    onChange={() => setIhrQuestion4(true)}
-                    className="w-4 h-4 text-red-400 focus:ring-red-400/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">Yes</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="q4"
-                    checked={ihrQuestion4 === false}
-                    onChange={() => setIhrQuestion4(false)}
-                    className="w-4 h-4 text-red-400 focus:ring-red-400/50"
-                  />
-                  <span className="text-sm font-bold text-slate-300">No</span>
-                </label>
+              {/* Question 4 */}
+              <div className="border-l-2 border-red-400/30 pl-6 py-2">
+                <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                  4. Is there a significant risk of international travel or trade restrictions?
+                </h3>
+                <div className="flex gap-6 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q4"
+                      checked={ihrQuestion4 === true}
+                      onChange={() => setIhrQuestion4(true)}
+                      className="w-4 h-4 text-red-400 focus:ring-red-400/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">Yes</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="q4"
+                      checked={ihrQuestion4 === false}
+                      onChange={() => setIhrQuestion4(false)}
+                      className="w-4 h-4 text-red-400 focus:ring-red-400/50"
+                    />
+                    <span className="text-sm font-bold text-slate-300">No</span>
+                  </label>
+                </div>
+                <textarea
+                  value={ihrQuestion4Notes}
+                  onChange={(e) => setIhrQuestion4Notes(e.target.value)}
+                  placeholder="Notes and justification..."
+                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50 resize-none"
+                  rows={3}
+                />
               </div>
-              <textarea
-                value={ihrQuestion4Notes}
-                onChange={(e) => setIhrQuestion4Notes(e.target.value)}
-                placeholder="Notes and justification..."
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50 resize-none"
-                rows={3}
-              />
             </div>
-          </div>
+          ) : (
+            <RRAForm initialData={rraFormData} onChange={setRRAFormData} />
+          )}
 
           {/* Action Buttons */}
           <div className="mt-12 pt-8 border-t border-slate-700/30 flex gap-4">
