@@ -10,5 +10,5 @@ python-dotenv
 celery
 redis
 python-multipart
-jose[cryptography]
+python-jose[cryptography]
 passlib[bcrypt]

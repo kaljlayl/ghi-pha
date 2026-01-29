@@ -1,21 +1,31 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 import datetime
 from app.database import get_db
-from app.models.schema import Assessment, Signal, Escalation
+from app.models.schema import Assessment, Signal, Escalation, User
 from app.models.schemas_api import AssessmentResponse, AssessmentCreate, AssessmentUpdate
+from app.auth import get_optional_current_user
 
 router = APIRouter()
 
 @router.post("/", response_model=AssessmentResponse)
-def create_assessment(assessment: AssessmentCreate, db: Session = Depends(get_db)):
+def create_assessment(
+    assessment: AssessmentCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Create a new assessment. Requires authentication (Senior Analyst, Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Senior Analyst", "Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions. Required: Senior Analyst, Director, or Admin")
+
     # Verify signal exists
     signal = db.query(Signal).filter(Signal.id == assessment.signal_id).first()
     if not signal:
         raise HTTPException(status_code=404, detail="Signal not found")
-    
+
     db_assessment = Assessment(**assessment.model_dump())
     db.add(db_assessment)
     db.commit()
@@ -30,7 +40,17 @@ def get_assessment(assessment_id: str, db: Session = Depends(get_db)):
     return assessment
 
 @router.patch("/{assessment_id}", response_model=AssessmentResponse)
-def update_assessment(assessment_id: str, update: AssessmentUpdate, db: Session = Depends(get_db)):
+def update_assessment(
+    assessment_id: str,
+    update: AssessmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Update an assessment. Requires authentication (Analyst, Senior Analyst, Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Analyst", "Senior Analyst", "Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
     db_assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
     if not db_assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
@@ -51,9 +71,13 @@ class CompleteAssessmentRequest(BaseModel):
 def complete_assessment(
     assessment_id: str,
     request: CompleteAssessmentRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
-    """Complete an assessment and optionally escalate to director"""
+    """Complete an assessment and optionally escalate to director. Requires authentication (Analyst, Senior Analyst, Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Analyst", "Senior Analyst", "Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     # Get assessment
     db_assessment = db.query(Assessment).filter(Assessment.id == assessment_id).first()
     if not db_assessment:

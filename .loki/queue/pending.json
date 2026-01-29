@@ -1,52 +1,48 @@
 {
   "queue": [
     {
-      "id": "task-1.1.1",
+      "id": "task-2.1.1",
       "phase": "DEVELOPMENT",
-      "subPhase": "1.1",
-      "title": "Add Assessment API client functions",
-      "description": "Implement getSignal, createAssessment, updateAssessment, completeAssessment in frontend/src/api/ghi.ts",
+      "subPhase": "2.1",
+      "title": "Add User model + AuditLog model",
+      "description": "Add User and AuditLog tables per spec schema",
       "priority": "CRITICAL",
       "status": "IN_PROGRESS",
       "dependencies": [],
-      "estimatedMinutes": 30,
-      "files": ["frontend/src/api/ghi.ts"]
+      "estimatedMinutes": 30
     },
     {
-      "id": "task-1.1.2",
+      "id": "task-2.1.2",
       "phase": "DEVELOPMENT",
-      "subPhase": "1.1",
-      "title": "Add Assessment types to types.ts",
-      "description": "Define Assessment, IHR fields, and related types",
+      "subPhase": "2.1",
+      "title": "Auth endpoints with JWT",
+      "description": "POST /login, POST /logout, GET /me",
       "priority": "CRITICAL",
       "status": "PENDING",
-      "dependencies": [],
-      "estimatedMinutes": 20,
-      "files": ["frontend/src/types.ts"]
+      "dependencies": ["task-2.1.1"],
+      "estimatedMinutes": 45
     },
     {
-      "id": "task-1.1.3",
+      "id": "task-2.1.3",
       "phase": "DEVELOPMENT",
-      "subPhase": "1.1",
-      "title": "Add complete assessment backend endpoint",
-      "description": "Implement POST /api/v1/assessments/{id}/complete with escalation logic",
+      "subPhase": "2.1",
+      "title": "JWT middleware + RBAC",
+      "description": "OAuth2 bearer, get_current_user, require_role decorator",
       "priority": "CRITICAL",
       "status": "PENDING",
-      "dependencies": [],
-      "estimatedMinutes": 45,
-      "files": ["backend/app/api/v1/assessments.py"]
+      "dependencies": ["task-2.1.2"],
+      "estimatedMinutes": 30
     },
     {
-      "id": "task-1.1.4",
+      "id": "task-2.1.4",
       "phase": "DEVELOPMENT",
-      "subPhase": "1.1",
-      "title": "Wire AssessmentView to backend",
-      "description": "Replace hardcoded data, implement form handlers, add loading/error states",
+      "subPhase": "2.1",
+      "title": "Frontend auth (AuthContext + Login)",
+      "description": "Auth context, login page, protected routes, JWT storage",
       "priority": "HIGH",
       "status": "PENDING",
-      "dependencies": ["task-1.1.1", "task-1.1.2", "task-1.1.3"],
-      "estimatedMinutes": 60,
-      "files": ["frontend/src/views/AssessmentView.tsx"]
+      "dependencies": ["task-2.1.3"],
+      "estimatedMinutes": 60
     }
   ]
 }

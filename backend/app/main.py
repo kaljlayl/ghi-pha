@@ -53,10 +53,10 @@ def read_root():
 def health_check():
     return {"status": "healthy"}
 
-# Future routers
-from app.api.v1 import signals, assessments, escalations
-# from app.api.v1 import auth
-# app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+# API Routers
+from app.api.v1 import signals, assessments, escalations, auth
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(signals.router, prefix="/api/v1/signals", tags=["Signals"])
 app.include_router(assessments.router, prefix="/api/v1/assessments", tags=["Assessments"])
 app.include_router(escalations.router, prefix="/api/v1/escalations", tags=["Escalations"])

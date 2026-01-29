@@ -1,20 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models.schema import Escalation, Signal, Assessment
+from app.models.schema import Escalation, Signal, Assessment, User
 from app.models.schemas_api import EscalationResponse, EscalationCreate, EscalationUpdate, EscalationDetailResponse
+from app.auth import get_optional_current_user
 
 router = APIRouter()
 
 @router.post("/", response_model=EscalationResponse)
-def create_escalation(escalation: EscalationCreate, db: Session = Depends(get_db)):
+def create_escalation(
+    escalation: EscalationCreate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Create a new escalation. Requires authentication (Senior Analyst, Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Senior Analyst", "Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions. Required: Senior Analyst, Director, or Admin")
+
     # Verify assessment exists
     assessment = db.query(Assessment).filter(Assessment.id == escalation.assessment_id).first()
     if not assessment:
         raise HTTPException(status_code=404, detail="Assessment not found")
-    
+
     db_escalation = Escalation(**escalation.model_dump())
     db.add(db_escalation)
     db.commit()
@@ -22,7 +32,15 @@ def create_escalation(escalation: EscalationCreate, db: Session = Depends(get_db
     return db_escalation
 
 @router.get("/pending", response_model=List[EscalationResponse])
-def get_pending_escalations(db: Session = Depends(get_db)):
+def get_pending_escalations(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Get pending escalations. Requires authentication (Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions. Required: Director or Admin")
+
     return db.query(Escalation).filter(Escalation.director_status == "Pending Review").all()
 
 @router.get("/{escalation_id}", response_model=EscalationDetailResponse)
@@ -46,7 +64,17 @@ def get_escalation_details(escalation_id: str, db: Session = Depends(get_db)):
     }
 
 @router.patch("/{escalation_id}/decision", response_model=EscalationResponse)
-def director_decision(escalation_id: str, update: EscalationUpdate, db: Session = Depends(get_db)):
+def director_decision(
+    escalation_id: str,
+    update: EscalationUpdate,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+):
+    """Make a decision on an escalation. Requires authentication (Director, Admin)."""
+    # Check role permissions
+    if current_user and current_user.role not in ["Director", "Admin"]:
+        raise HTTPException(status_code=403, detail="Insufficient permissions. Required: Director or Admin")
+
     db_escalation = db.query(Escalation).filter(Escalation.id == escalation_id).first()
     if not db_escalation:
         raise HTTPException(status_code=404, detail="Escalation not found")
