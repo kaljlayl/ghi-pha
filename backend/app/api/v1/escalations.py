@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from app.database import get_db
 from app.models.schema import Escalation, Signal, Assessment
-from app.models.schemas_api import EscalationResponse, EscalationCreate, EscalationUpdate
+from app.models.schemas_api import EscalationResponse, EscalationCreate, EscalationUpdate, EscalationDetailResponse
 
 router = APIRouter()
 
@@ -24,16 +25,57 @@ def create_escalation(escalation: EscalationCreate, db: Session = Depends(get_db
 def get_pending_escalations(db: Session = Depends(get_db)):
     return db.query(Escalation).filter(Escalation.director_status == "Pending Review").all()
 
+@router.get("/{escalation_id}", response_model=EscalationDetailResponse)
+def get_escalation_details(escalation_id: str, db: Session = Depends(get_db)):
+    db_escalation = db.query(Escalation).filter(Escalation.id == escalation_id).first()
+    if not db_escalation:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+
+    # Fetch related signal and assessment
+    signal = db.query(Signal).filter(Signal.id == db_escalation.signal_id).first()
+    assessment = db.query(Assessment).filter(Assessment.id == db_escalation.assessment_id).first()
+
+    if not signal or not assessment:
+        raise HTTPException(status_code=404, detail="Related signal or assessment not found")
+
+    # Return escalation with nested signal and assessment
+    return {
+        **db_escalation.__dict__,
+        "signal": signal,
+        "assessment": assessment
+    }
+
 @router.patch("/{escalation_id}/decision", response_model=EscalationResponse)
 def director_decision(escalation_id: str, update: EscalationUpdate, db: Session = Depends(get_db)):
     db_escalation = db.query(Escalation).filter(Escalation.id == escalation_id).first()
     if not db_escalation:
         raise HTTPException(status_code=404, detail="Escalation not found")
-    
+
+    # Map decision to director_status
+    decision_to_status = {
+        "approve": "Approved",
+        "reject": "Rejected",
+        "request_more_info": "Pending Review"
+    }
+
     update_data = update.model_dump(exclude_unset=True)
+
+    # Handle decision mapping
+    if "director_decision" in update_data:
+        decision = update_data.get("director_decision")
+        if decision in decision_to_status:
+            update_data["director_status"] = decision_to_status[decision]
+
+    # Set reviewed_at timestamp
+    update_data["reviewed_at"] = datetime.now()
+
+    # Set resolved_at if approved or rejected
+    if update_data.get("director_status") in ["Approved", "Rejected"]:
+        update_data["resolved_at"] = datetime.now()
+
     for key, value in update_data.items():
         setattr(db_escalation, key, value)
-    
+
     db.commit()
     db.refresh(db_escalation)
     return db_escalation
