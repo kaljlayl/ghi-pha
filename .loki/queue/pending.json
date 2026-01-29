@@ -1,0 +1,52 @@
+{
+  "queue": [
+    {
+      "id": "task-1.1.1",
+      "phase": "DEVELOPMENT",
+      "subPhase": "1.1",
+      "title": "Add Assessment API client functions",
+      "description": "Implement getSignal, createAssessment, updateAssessment, completeAssessment in frontend/src/api/ghi.ts",
+      "priority": "CRITICAL",
+      "status": "IN_PROGRESS",
+      "dependencies": [],
+      "estimatedMinutes": 30,
+      "files": ["frontend/src/api/ghi.ts"]
+    },
+    {
+      "id": "task-1.1.2",
+      "phase": "DEVELOPMENT",
+      "subPhase": "1.1",
+      "title": "Add Assessment types to types.ts",
+      "description": "Define Assessment, IHR fields, and related types",
+      "priority": "CRITICAL",
+      "status": "PENDING",
+      "dependencies": [],
+      "estimatedMinutes": 20,
+      "files": ["frontend/src/types.ts"]
+    },
+    {
+      "id": "task-1.1.3",
+      "phase": "DEVELOPMENT",
+      "subPhase": "1.1",
+      "title": "Add complete assessment backend endpoint",
+      "description": "Implement POST /api/v1/assessments/{id}/complete with escalation logic",
+      "priority": "CRITICAL",
+      "status": "PENDING",
+      "dependencies": [],
+      "estimatedMinutes": 45,
+      "files": ["backend/app/api/v1/assessments.py"]
+    },
+    {
+      "id": "task-1.1.4",
+      "phase": "DEVELOPMENT",
+      "subPhase": "1.1",
+      "title": "Wire AssessmentView to backend",
+      "description": "Replace hardcoded data, implement form handlers, add loading/error states",
+      "priority": "HIGH",
+      "status": "PENDING",
+      "dependencies": ["task-1.1.1", "task-1.1.2", "task-1.1.3"],
+      "estimatedMinutes": 60,
+      "files": ["frontend/src/views/AssessmentView.tsx"]
+    }
+  ]
+}

@@ -1,141 +1,429 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { getSignal, createAssessment, updateAssessment, completeAssessment } from '../api/ghi';
+import type { Signal, Assessment } from '../types';
 
 const AssessmentView = () => {
-    const [answers, setAnswers] = useState({
-        q1: null,
-        q2: null,
-        q3: null,
-        q4: null
-    });
+  const { signalId } = useParams<{ signalId: string }>();
 
-    const handleAnswer = (q: string, val: boolean) => {
-        setAnswers({ ...answers, [q]: val });
+  // Signal state
+  const [signal, setSignal] = useState<Signal | null>(null);
+  const [signalLoading, setSignalLoading] = useState(true);
+  const [signalError, setSignalError] = useState<string | null>(null);
+
+  // Assessment state
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [ihrQuestion1, setIhrQuestion1] = useState<boolean | null>(null);
+  const [ihrQuestion1Notes, setIhrQuestion1Notes] = useState('');
+  const [ihrQuestion2, setIhrQuestion2] = useState<boolean | null>(null);
+  const [ihrQuestion2Notes, setIhrQuestion2Notes] = useState('');
+  const [ihrQuestion3, setIhrQuestion3] = useState<boolean | null>(null);
+  const [ihrQuestion3Notes, setIhrQuestion3Notes] = useState('');
+  const [ihrQuestion4, setIhrQuestion4] = useState<boolean | null>(null);
+  const [ihrQuestion4Notes, setIhrQuestion4Notes] = useState('');
+
+  // UI state
+  const [saving, setSaving] = useState(false);
+  const [actionInProgress, setActionInProgress] = useState(false);
+
+  // Load signal on mount
+  useEffect(() => {
+    if (!signalId) {
+      setSignalLoading(false);
+      return;
+    }
+
+    const loadSignal = async () => {
+      try {
+        setSignalLoading(true);
+        setSignalError(null);
+        const data = await getSignal(signalId);
+        setSignal(data);
+      } catch (err) {
+        setSignalError(err instanceof Error ? err.message : 'Failed to load signal');
+      } finally {
+        setSignalLoading(false);
+      }
     };
 
-    const yesCount = Object.values(answers).filter(v => v === true).length;
-    const isComplete = Object.values(answers).every(v => v !== null);
+    loadSignal();
+  }, [signalId]);
 
+  // Load existing assessment if signal has one
+  useEffect(() => {
+    if (assessment) {
+      setIhrQuestion1(assessment.ihr_question_1 ?? null);
+      setIhrQuestion1Notes(assessment.ihr_question_1_notes ?? '');
+      setIhrQuestion2(assessment.ihr_question_2 ?? null);
+      setIhrQuestion2Notes(assessment.ihr_question_2_notes ?? '');
+      setIhrQuestion3(assessment.ihr_question_3 ?? null);
+      setIhrQuestion3Notes(assessment.ihr_question_3_notes ?? '');
+      setIhrQuestion4(assessment.ihr_question_4 ?? null);
+      setIhrQuestion4Notes(assessment.ihr_question_4_notes ?? '');
+    }
+  }, [assessment]);
+
+  const handleSaveDraft = async () => {
+    if (!signalId) return;
+
+    try {
+      setSaving(true);
+      const formData = {
+        ihr_question_1: ihrQuestion1,
+        ihr_question_1_notes: ihrQuestion1Notes || null,
+        ihr_question_2: ihrQuestion2,
+        ihr_question_2_notes: ihrQuestion2Notes || null,
+        ihr_question_3: ihrQuestion3,
+        ihr_question_3_notes: ihrQuestion3Notes || null,
+        ihr_question_4: ihrQuestion4,
+        ihr_question_4_notes: ihrQuestion4Notes || null,
+      };
+
+      if (assessment) {
+        const updated = await updateAssessment(assessment.id, formData);
+        setAssessment(updated);
+      } else {
+        const newAssessment = await createAssessment(signalId, 'IHR Annex 2');
+        const updated = await updateAssessment(newAssessment.id, formData);
+        setAssessment(updated);
+      }
+
+      alert('Assessment saved successfully');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save assessment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!assessment) {
+      alert('Please save the assessment first');
+      return;
+    }
+
+    const justification = prompt('Enter justification for archiving this assessment:');
+    if (!justification) return;
+
+    try {
+      setActionInProgress(true);
+      await completeAssessment(assessment.id, 'archive', justification);
+      alert('Assessment archived successfully');
+      // Optionally navigate away or refresh
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to archive assessment');
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleEscalate = async () => {
+    if (!assessment) {
+      alert('Please save the assessment first');
+      return;
+    }
+
+    const justification = prompt('Enter justification for escalating to Director:');
+    if (!justification) return;
+
+    try {
+      setActionInProgress(true);
+      await completeAssessment(assessment.id, 'escalate', justification);
+      alert('Assessment escalated to Director successfully');
+      // Optionally navigate away or refresh
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to escalate assessment');
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  // Loading state
+  if (signalLoading) {
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-100 animate-in fade-in slide-in-from-right-4 duration-1000">
-            {/* Sidebar: Signal Info */}
-            <div className="lg:col-span-1 space-y-8">
-                <div className="glass-panel p-8 rounded-3xl border border-ghi-blue/10 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-ghi-teal/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-ghi-teal shadow-[0_0_8px_#00F2FF]"></span>
-                        Intelligence Focus
-                    </h4>
-                    <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wider">Ebola Virus Disease</h3>
-                    <p className="text-ghi-teal font-black text-xs uppercase tracking-widest mb-6 neon-text">DRC // North Kivu</p>
-
-                    <div className="space-y-4 py-6 border-y border-white/5 mb-6">
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                            <span className="text-slate-500">Signal ID</span>
-                            <span className="text-white">EVT-2026-001</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                            <span className="text-slate-500">Bio-Risk Index</span>
-                            <span className="text-ghi-critical neon-text">Severe</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                            <span className="text-slate-500">Fatality Projection</span>
-                            <span className="text-white">41.7%</span>
-                        </div>
-                    </div>
-
-                    <p className="text-slate-400 text-[11px] italic leading-relaxed font-medium">
-                        "Event detected via neural mesh sync. Multi-vector transmission suspected in urban zones. Triage phase concluded."
-                    </p>
-                </div>
-
-                <div className="glass-panel p-8 rounded-3xl border border-ghi-blue/10">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Assessment Logic</h4>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                        Executing IHR (2005) Annex 2 Decision Matrix. Determine if event classification meets <span className="text-ghi-teal font-black">PHEIC</span> status.
-                    </p>
-                </div>
-            </div>
-
-            {/* Main: IHR Form */}
-            <div className="lg:col-span-2 glass-panel p-10 rounded-[2.5rem] border border-ghi-blue/10 min-h-[600px] relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-ghi-teal/30 to-transparent"></div>
-
-                <h3 className="text-xl font-black text-white mb-10 flex items-center gap-4 tracking-widest uppercase">
-                    <div className="p-3 bg-ghi-teal/10 rounded-2xl text-ghi-teal border border-ghi-teal/20 shadow-[0_0_15px_rgba(0,242,255,0.1)]">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
-                    Annex 2 Analytic Matrix
-                </h3>
-
-                <div className="space-y-6">
-                    {[
-                        { id: 'q1', text: 'Is the public health impact of the event serious?' },
-                        { id: 'q2', text: 'Is the event unusual or unexpected?' },
-                        { id: 'q3', text: 'Is there a significant risk of international spread?' },
-                        { id: 'q4', text: 'Is there a significant risk of international travel or trade restrictions?' },
-                    ].map((q, i) => (
-                        <div key={q.id} className="p-6 bg-white/[0.02] rounded-2xl border border-white/5 transition-all hover:bg-white/[0.05] group">
-                            <div className="flex justify-between items-center gap-6">
-                                <div className="flex gap-6 items-center">
-                                    <span className="text-ghi-teal/30 font-black text-xl italic group-hover:text-ghi-teal/60 transition-colors tracking-tighter">0{i + 1}</span>
-                                    <p className="text-xs font-black text-slate-300 uppercase tracking-widest leading-relaxed">{q.text}</p>
-                                </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleAnswer(q.id, true)}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase border border-white/5 ${(answers as any)[q.id] === true
-                                            ? 'bg-ghi-critical/10 text-ghi-critical border-ghi-critical/30 shadow-[0_0_15px_rgba(255,49,49,0.2)]'
-                                            : 'bg-white/5 text-slate-500 hover:text-white hover:border-white/20'
-                                            }`}
-                                    >YES</button>
-                                    <button
-                                        onClick={() => handleAnswer(q.id, false)}
-                                        className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all uppercase border border-white/5 ${(answers as any)[q.id] === false
-                                            ? 'bg-ghi-teal/10 text-ghi-teal border-ghi-teal/30 shadow-[0_0_15px_rgba(0,242,255,0.2)]'
-                                            : 'bg-white/5 text-slate-500 hover:text-white hover:border-white/20'
-                                            }`}
-                                    >NO</button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {isComplete && (
-                    <div className={`mt-12 p-8 rounded-3xl border animate-in zoom-in-95 duration-500 ${yesCount >= 2 ? 'bg-ghi-critical/5 border-ghi-critical/20' : 'bg-ghi-teal/5 border-ghi-teal/20'}`}>
-                        <div className="flex items-center gap-6 mb-6">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-lg ${yesCount >= 2 ? 'bg-ghi-critical text-white shadow-ghi-critical/20' : 'bg-ghi-teal text-white shadow-ghi-teal/20'}`}>
-                                {yesCount}
-                            </div>
-                            <div>
-                                <h4 className="font-black text-white uppercase tracking-[0.3em] text-[10px] mb-1">Inferred Classification</h4>
-                                <p className={`text-sm font-black tracking-widest uppercase ${yesCount >= 2 ? 'text-ghi-critical neon-text' : 'text-ghi-teal neon-text'}`}>
-                                    {yesCount >= 2 ? 'MANDATORY WHO NOTIFICATION' : 'LOCAL MONITORING ASSIGNED'}
-                                </p>
-                            </div>
-                        </div>
-                        <p className="text-slate-500 text-[11px] font-medium leading-relaxed mb-8 uppercase tracking-widest border-l-2 border-white/10 pl-4">
-                            {yesCount >= 2
-                                ? 'Neural consensus reached: Event meets IHR notification thresholds. Immediate escalation to GHIC Director required.'
-                                : 'Threshold not achieved. Maintain passive surveillance and archive intelligence record.'
-                            }
-                        </p>
-                        <div className="flex gap-4">
-                            <button className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-slate-400 font-black text-[10px] rounded-2xl transition-all border border-white/5 uppercase tracking-[0.2em]">
-                                SAVE DRAFT
-                            </button>
-                            <button className={`flex-1 py-4 font-black text-[10px] rounded-2xl transition-all uppercase tracking-[0.2em] shadow-xl ${yesCount >= 2
-                                ? 'bg-ghi-critical/20 hover:bg-ghi-critical/30 text-ghi-critical border border-ghi-critical/40'
-                                : 'bg-ghi-teal/20 hover:bg-ghi-teal/30 text-ghi-teal border border-ghi-teal/40'
-                                }`}>
-                                {yesCount >= 2 ? 'ESCALATE TO DIRECTOR' : 'ARCHIVE COMMAND'}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-100 animate-in fade-in slide-in-from-right-4 duration-1000">
+        <div className="lg:col-span-3 glass-panel p-10 rounded-[2.5rem] border border-ghi-blue/10 min-h-[600px] flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-ghi-teal/20 border-t-ghi-teal rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-ghi-teal font-black text-xs tracking-[0.3em] uppercase neon-text">Loading Signal...</p>
+          </div>
         </div>
+      </div>
     );
+  }
+
+  // Error state
+  if (signalError || !signal) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-100 animate-in fade-in slide-in-from-right-4 duration-1000">
+        <div className="lg:col-span-3 glass-panel p-10 rounded-[2.5rem] border border-red-500/20 min-h-[600px] flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 font-black text-xs tracking-[0.3em] uppercase mb-3">Error Loading Signal</p>
+            <p className="text-slate-400 text-sm">{signalError || 'Signal not found'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No signal selected state
+  if (!signalId) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-100 animate-in fade-in slide-in-from-right-4 duration-1000">
+        <div className="lg:col-span-1 space-y-8">
+          <div className="glass-panel p-8 rounded-3xl border border-ghi-blue/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-ghi-teal/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-ghi-teal shadow-[0_0_8px_#00F2FF]"></span>
+              Assessment Context
+            </h4>
+            <h3 className="text-xl font-black text-white mb-3 uppercase tracking-wider">No signal selected</h3>
+            <p className="text-slate-400 text-[11px] italic leading-relaxed font-medium">
+              Select a signal from Triage to start an Annex 2 or RRA assessment.
+            </p>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 glass-panel p-10 rounded-[2.5rem] border border-ghi-blue/10 min-h-[600px] relative overflow-hidden flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-ghi-teal font-black text-xs tracking-[0.3em] uppercase neon-text">Awaiting Assignment</p>
+            <p className="text-slate-500 text-[10px] mt-3 font-bold uppercase tracking-widest">
+              Assessments will appear here once a signal is accepted.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-slate-100 animate-in fade-in slide-in-from-right-4 duration-1000">
+      {/* Left Sidebar - Signal Context */}
+      <div className="lg:col-span-1 space-y-8">
+        <div className="glass-panel p-8 rounded-3xl border border-ghi-blue/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-ghi-teal/5 blur-3xl rounded-full -mr-12 -mt-12"></div>
+          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-ghi-teal shadow-[0_0_8px_#00F2FF]"></span>
+            Assessment Context
+          </h4>
+          <h3 className="text-xl font-black text-white mb-3 uppercase tracking-wider">{signal.disease}</h3>
+          <p className="text-slate-400 text-[11px] italic leading-relaxed font-medium mb-6">
+            {signal.country} {signal.location ? `- ${signal.location}` : ''}
+          </p>
+
+          <div className="space-y-4 pt-4 border-t border-slate-700/30">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Cases</span>
+              <span className="text-sm font-black text-ghi-teal">{signal.cases}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">Deaths</span>
+              <span className="text-sm font-black text-red-400">{signal.deaths}</span>
+            </div>
+            {signal.case_fatality_rate && (
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">CFR</span>
+                <span className="text-sm font-black text-amber-400">{signal.case_fatality_rate.toFixed(1)}%</span>
+              </div>
+            )}
+          </div>
+
+          {signal.beacon_event_id && (
+            <div className="mt-6 pt-6 border-t border-slate-700/30">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Event ID</p>
+              <p className="text-xs font-mono text-ghi-blue">{signal.beacon_event_id}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main Assessment Form */}
+      <div className="lg:col-span-2 glass-panel p-10 rounded-[2.5rem] border border-ghi-blue/10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-ghi-blue/5 blur-3xl rounded-full -mr-32 -mt-32"></div>
+
+        <div className="relative z-10">
+          <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wider flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-ghi-blue shadow-[0_0_12px_#4D9FFF]"></span>
+            IHR Annex 2 Assessment
+          </h2>
+          <p className="text-slate-400 text-xs mb-10 font-medium tracking-wide">
+            Decision instrument for the assessment and notification of events that may constitute a PHEIC
+          </p>
+
+          <div className="space-y-8">
+            {/* Question 1 */}
+            <div className="border-l-2 border-ghi-teal/30 pl-6 py-2">
+              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                1. Is the public health impact of the event serious?
+              </h3>
+              <div className="flex gap-6 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q1"
+                    checked={ihrQuestion1 === true}
+                    onChange={() => setIhrQuestion1(true)}
+                    className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q1"
+                    checked={ihrQuestion1 === false}
+                    onChange={() => setIhrQuestion1(false)}
+                    className="w-4 h-4 text-ghi-teal focus:ring-ghi-teal/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">No</span>
+                </label>
+              </div>
+              <textarea
+                value={ihrQuestion1Notes}
+                onChange={(e) => setIhrQuestion1Notes(e.target.value)}
+                placeholder="Notes and justification..."
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-teal/50 focus:ring-1 focus:ring-ghi-teal/50 resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Question 2 */}
+            <div className="border-l-2 border-ghi-blue/30 pl-6 py-2">
+              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                2. Is the event unusual or unexpected?
+              </h3>
+              <div className="flex gap-6 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q2"
+                    checked={ihrQuestion2 === true}
+                    onChange={() => setIhrQuestion2(true)}
+                    className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q2"
+                    checked={ihrQuestion2 === false}
+                    onChange={() => setIhrQuestion2(false)}
+                    className="w-4 h-4 text-ghi-blue focus:ring-ghi-blue/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">No</span>
+                </label>
+              </div>
+              <textarea
+                value={ihrQuestion2Notes}
+                onChange={(e) => setIhrQuestion2Notes(e.target.value)}
+                placeholder="Notes and justification..."
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-ghi-blue/50 focus:ring-1 focus:ring-ghi-blue/50 resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Question 3 */}
+            <div className="border-l-2 border-amber-400/30 pl-6 py-2">
+              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                3. Is there a significant risk of international spread?
+              </h3>
+              <div className="flex gap-6 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q3"
+                    checked={ihrQuestion3 === true}
+                    onChange={() => setIhrQuestion3(true)}
+                    className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q3"
+                    checked={ihrQuestion3 === false}
+                    onChange={() => setIhrQuestion3(false)}
+                    className="w-4 h-4 text-amber-400 focus:ring-amber-400/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">No</span>
+                </label>
+              </div>
+              <textarea
+                value={ihrQuestion3Notes}
+                onChange={(e) => setIhrQuestion3Notes(e.target.value)}
+                placeholder="Notes and justification..."
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/50 resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* Question 4 */}
+            <div className="border-l-2 border-red-400/30 pl-6 py-2">
+              <h3 className="text-sm font-black text-white mb-4 uppercase tracking-wide">
+                4. Is there a significant risk of international travel or trade restrictions?
+              </h3>
+              <div className="flex gap-6 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q4"
+                    checked={ihrQuestion4 === true}
+                    onChange={() => setIhrQuestion4(true)}
+                    className="w-4 h-4 text-red-400 focus:ring-red-400/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">Yes</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="q4"
+                    checked={ihrQuestion4 === false}
+                    onChange={() => setIhrQuestion4(false)}
+                    className="w-4 h-4 text-red-400 focus:ring-red-400/50"
+                  />
+                  <span className="text-sm font-bold text-slate-300">No</span>
+                </label>
+              </div>
+              <textarea
+                value={ihrQuestion4Notes}
+                onChange={(e) => setIhrQuestion4Notes(e.target.value)}
+                placeholder="Notes and justification..."
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 focus:border-red-400/50 focus:ring-1 focus:ring-red-400/50 resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-12 pt-8 border-t border-slate-700/30 flex gap-4">
+            <button
+              onClick={handleSaveDraft}
+              disabled={saving || actionInProgress}
+              className="px-6 py-3 bg-ghi-teal/10 hover:bg-ghi-teal/20 border border-ghi-teal/30 rounded-xl text-sm font-black text-ghi-teal uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save Draft'}
+            </button>
+            <button
+              onClick={handleArchive}
+              disabled={saving || actionInProgress || !assessment}
+              className="px-6 py-3 bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/30 rounded-xl text-sm font-black text-slate-300 uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Archive
+            </button>
+            <button
+              onClick={handleEscalate}
+              disabled={saving || actionInProgress || !assessment}
+              className="px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-sm font-black text-amber-400 uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Escalate to Director
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default AssessmentView;

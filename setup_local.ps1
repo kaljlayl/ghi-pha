@@ -31,4 +31,15 @@ Write-Host "`nWINDOW 2 (Frontend):" -ForegroundColor White
 Write-Host "cd frontend"
 Write-Host "npm run dev"
 
+Write-Host "`nWINDOW 3 (Scraper Service):" -ForegroundColor White
+Write-Host "cd D:\\Radis\\rads-scraper-service"
+Write-Host "npm install"
+Write-Host "npm run dev"
+
+Write-Host "`nOptional environment variables:" -ForegroundColor Gray
+Write-Host "SCRAPER_BASE_URL=http://localhost:8787"
+Write-Host "BEACON_EVENTS_PATH=/en/events"
+Write-Host "ENABLE_BEACON_POLLING=1"
+Write-Host "BEACON_POLL_INTERVAL_MINUTES=15"
+
 Write-Host "`nNote: The backend will automatically create 'ghi_system.db' (SQLite) if no DATABASE_URL is provided." -ForegroundColor Gray

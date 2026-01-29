@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './views/Dashboard';
 import Triage from './views/Triage';
 import AssessmentView from './views/AssessmentView';
 import EscalationView from './views/EscalationView';
 import LoginView from './views/LoginView';
+import { useLiveSignals } from './hooks/useLiveSignals';
 
 const GHICLogo = () => (
   <div className="relative flex items-center justify-center group">
@@ -43,19 +45,33 @@ const EscalationIcon = () => (
   </svg>
 );
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeView, setActiveView] = useState('dashboard');
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { signals } = useLiveSignals({ pollIntervalMs: 30000 });
 
-  if (!isAuthenticated) {
-    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
-  }
+  const criticalCount = useMemo(
+    () => signals.filter((s) => (s.priority_score ?? 0) >= 85).length,
+    [signals],
+  );
+  const pendingCount = useMemo(
+    () => signals.filter((s) => s.triage_status === 'Pending Triage').length,
+    [signals],
+  );
+
+  const activeView = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith('/triage')) return 'triage';
+    if (path.startsWith('/assessments')) return 'assessments';
+    if (path.startsWith('/escalations')) return 'escalations';
+    return 'dashboard';
+  }, [location.pathname]);
 
   const navItems = [
-    { id: 'dashboard', label: 'DASHBOARD', icon: <DashboardIcon /> },
-    { id: 'triage', label: 'TRIAGE', icon: <TriageIcon /> },
-    { id: 'assessments', label: 'ASSESSMENTS', icon: <AssessmentIcon /> },
-    { id: 'escalations', label: 'ESCALATIONS', icon: <EscalationIcon /> },
+    { id: 'dashboard', label: 'DASHBOARD', icon: <DashboardIcon />, path: '/' },
+    { id: 'triage', label: 'TRIAGE', icon: <TriageIcon />, path: '/triage' },
+    { id: 'assessments', label: 'ASSESSMENTS', icon: <AssessmentIcon />, path: '/assessments' },
+    { id: 'escalations', label: 'ESCALATIONS', icon: <EscalationIcon />, path: '/escalations' },
   ];
 
   return (
@@ -74,7 +90,7 @@ function App() {
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveView(item.id)}
+              onClick={() => navigate(item.path)}
               className={`group w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 ${activeView === item.id
                 ? 'sidebar-link-active neon-border'
                 : 'text-slate-500 hover:text-ghi-teal hover:bg-ghi-teal/5'
@@ -119,14 +135,14 @@ function App() {
             <div className="px-5 py-2.5 glass-panel rounded-xl flex items-center gap-3 border-ghi-critical/20 group cursor-pointer hover:border-ghi-critical/50 transition-all">
               <div className="w-2 h-2 rounded-full bg-ghi-critical pulse-critical shadow-[0_0_10px_#FF3131]"></div>
               <div>
-                <p className="text-[10px] font-black text-white leading-none">3 CRITICAL</p>
+                <p className="text-[10px] font-black text-white leading-none">{criticalCount} CRITICAL</p>
                 <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Signals Active</p>
               </div>
             </div>
             <div className="px-5 py-2.5 glass-panel rounded-xl flex items-center gap-3 border-ghi-teal/20 group cursor-pointer hover:border-ghi-teal/50 transition-all">
               <div className="w-2 h-2 rounded-full bg-ghi-teal shadow-[0_0_10px_#00F2FF]"></div>
               <div>
-                <p className="text-[10px] font-black text-white leading-none">18 PENDING</p>
+                <p className="text-[10px] font-black text-white leading-none">{pendingCount} PENDING</p>
                 <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Triage Queue</p>
               </div>
             </div>
@@ -135,13 +151,30 @@ function App() {
 
         {/* View Content */}
         <div className="relative z-10">
-          {activeView === 'dashboard' && <Dashboard />}
-          {activeView === 'triage' && <Triage />}
-          {activeView === 'assessments' && <AssessmentView />}
-          {activeView === 'escalations' && <EscalationView />}
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/triage" element={<Triage />} />
+            <Route path="/assessments" element={<AssessmentView />} />
+            <Route path="/assessments/:signalId" element={<AssessmentView />} />
+            <Route path="/escalations" element={<EscalationView />} />
+          </Routes>
         </div>
       </main>
     </div>
+  );
+}
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  if (!isAuthenticated) {
+    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
+  }
+
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 
