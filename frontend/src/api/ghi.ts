@@ -1,6 +1,42 @@
 import type { Signal, Assessment, Escalation, DirectorDecision } from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const AUTH_TOKEN_KEY = 'ghi_auth_token';
+
+// Helper to get auth token from localStorage
+export const getAuthToken = (): string | null => {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+};
+
+// Helper to create headers with auth token
+const getHeaders = (additionalHeaders: Record<string, string> = {}): HeadersInit => {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    ...additionalHeaders,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+};
+
+// Helper to handle API responses and 401 errors
+const handleResponse = async <T>(response: Response): Promise<T> => {
+  if (response.status === 401) {
+    // Clear token and redirect to login
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    window.location.href = '/login';
+    throw new Error('Unauthorized - please login again');
+  }
+
+  if (!response.ok) {
+    throw new Error(`API error (${response.status})`);
+  }
+
+  return response.json();
+};
 
 export const fetchSignals = async (status?: string): Promise<Signal[]> => {
   const url = new URL(`${API_BASE_URL}/api/v1/signals`);
@@ -8,19 +44,17 @@ export const fetchSignals = async (status?: string): Promise<Signal[]> => {
     url.searchParams.set('status', status);
   }
 
-  const response = await fetch(url.toString());
-  if (!response.ok) {
-    throw new Error(`Failed to load signals (${response.status})`);
-  }
-  return response.json();
+  const response = await fetch(url.toString(), {
+    headers: getHeaders(),
+  });
+  return handleResponse<Signal[]>(response);
 };
 
 export const getSignal = async (id: string): Promise<Signal> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/signals/${id}`);
-  if (!response.ok) {
-    throw new Error(`Failed to load signal ${id} (${response.status})`);
-  }
-  return response.json();
+  const response = await fetch(`${API_BASE_URL}/api/v1/signals/${id}`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<Signal>(response);
 };
 
 export const createAssessment = async (
@@ -29,16 +63,13 @@ export const createAssessment = async (
 ): Promise<Assessment> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/assessments`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       signal_id: signalId,
       assessment_type: assessmentType,
     }),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to create assessment (${response.status})`);
-  }
-  return response.json();
+  return handleResponse<Assessment>(response);
 };
 
 export const updateAssessment = async (
@@ -47,13 +78,10 @@ export const updateAssessment = async (
 ): Promise<Assessment> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/assessments/${id}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to update assessment (${response.status})`);
-  }
-  return response.json();
+  return handleResponse<Assessment>(response);
 };
 
 export const completeAssessment = async (
@@ -63,31 +91,26 @@ export const completeAssessment = async (
 ): Promise<Assessment> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/assessments/${id}/complete`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ outcome, justification }),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to complete assessment (${response.status})`);
-  }
-  return response.json();
+  return handleResponse<Assessment>(response);
 };
 
 export const getPendingEscalations = async (): Promise<Escalation[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/escalations/pending`);
-  if (!response.ok) {
-    throw new Error(`Failed to load escalations (${response.status})`);
-  }
-  return response.json();
+  const response = await fetch(`${API_BASE_URL}/api/v1/escalations/pending`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<Escalation[]>(response);
 };
 
 export const getEscalationDetails = async (
   id: string
 ): Promise<Escalation & { signal: Signal; assessment: Assessment }> => {
-  const response = await fetch(`${API_BASE_URL}/api/v1/escalations/${id}`);
-  if (!response.ok) {
-    throw new Error(`Failed to load escalation ${id} (${response.status})`);
-  }
-  return response.json();
+  const response = await fetch(`${API_BASE_URL}/api/v1/escalations/${id}`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<Escalation & { signal: Signal; assessment: Assessment }>(response);
 };
 
 export const submitDirectorDecision = async (
@@ -96,21 +119,16 @@ export const submitDirectorDecision = async (
 ): Promise<Escalation> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/escalations/${id}/decision`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(decision),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to submit director decision (${response.status})`);
-  }
-  return response.json();
+  return handleResponse<Escalation>(response);
 };
 
 export const pollBeacon = async (): Promise<{ message: string }> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/signals/poll-beacon`, {
     method: 'POST',
+    headers: getHeaders(),
   });
-  if (!response.ok) {
-    throw new Error(`Failed to poll beacon (${response.status})`);
-  }
-  return response.json();
+  return handleResponse<{ message: string }>(response);
 };

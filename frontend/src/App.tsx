@@ -1,11 +1,31 @@
-import { useMemo, useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { useMemo } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Dashboard from './views/Dashboard';
 import Triage from './views/Triage';
 import AssessmentView from './views/AssessmentView';
 import EscalationView from './views/EscalationView';
 import LoginView from './views/LoginView';
 import { useLiveSignals } from './hooks/useLiveSignals';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// ProtectedRoute component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen bg-ghi-navy items-center justify-center">
+        <div className="text-ghi-teal text-sm font-bold animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const GHICLogo = () => (
   <div className="relative flex items-center justify-center group">
@@ -45,10 +65,17 @@ const EscalationIcon = () => (
   </svg>
 );
 
+const LogoutIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  </svg>
+);
+
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signals } = useLiveSignals({ pollIntervalMs: 30000 });
+  const { user, logout } = useAuth();
 
   const criticalCount = useMemo(
     () => signals.filter((s) => (s.priority_score ?? 0) >= 85).length,
@@ -68,7 +95,7 @@ function AppContent() {
   }, [location.pathname]);
 
   const navItems = [
-    { id: 'dashboard', label: 'DASHBOARD', icon: <DashboardIcon />, path: '/' },
+    { id: 'dashboard', label: 'DASHBOARD', icon: <DashboardIcon />, path: '/dashboard' },
     { id: 'triage', label: 'TRIAGE', icon: <TriageIcon />, path: '/triage' },
     { id: 'assessments', label: 'ASSESSMENTS', icon: <AssessmentIcon />, path: '/assessments' },
     { id: 'escalations', label: 'ESCALATIONS', icon: <EscalationIcon />, path: '/escalations' },
@@ -104,17 +131,23 @@ function AppContent() {
           ))}
         </nav>
 
-        <div className="p-6 border-t border-ghi-blue/10">
+        <div className="p-6 border-t border-ghi-blue/10 space-y-3">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-ghi-teal/5 border border-ghi-teal/10">
-            <div className="w-8 h-8 rounded-lg bg-ghi-teal/20 flex items-center justify-center text-ghi-teal font-bold text-xs">SA</div>
-            <div>
-              <p className="text-[10px] font-bold text-white">Analyst SA-01</p>
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-ghi-success shadow-[0_0_8px_rgba(57,255,20,0.5)]"></span>
-                <p className="text-[9px] text-slate-500 uppercase font-black">Secure</p>
-              </div>
+            <div className="w-8 h-8 rounded-lg bg-ghi-teal/20 flex items-center justify-center text-ghi-teal font-bold text-xs">
+              {user?.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-white truncate">{user?.full_name || 'User'}</p>
+              <p className="text-[8px] text-slate-500 uppercase font-black truncate">{user?.role || 'Analyst'}</p>
             </div>
           </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.02] hover:bg-ghi-critical/10 border border-white/5 hover:border-ghi-critical/30 text-slate-500 hover:text-ghi-critical transition-all group"
+          >
+            <LogoutIcon />
+            <span className="text-[9px] font-bold uppercase tracking-widest">Logout</span>
+          </button>
         </div>
       </aside>
 
@@ -152,7 +185,7 @@ function AppContent() {
         {/* View Content */}
         <div className="relative z-10">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/triage" element={<Triage />} />
             <Route path="/assessments" element={<AssessmentView />} />
             <Route path="/assessments/:signalId" element={<AssessmentView />} />
@@ -165,15 +198,29 @@ function AppContent() {
 }
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  if (!isAuthenticated) {
-    return <LoginView onLogin={() => setIsAuthenticated(true)} />;
-  }
-
   return (
     <BrowserRouter>
-      <AppContent />
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginView />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/dashboard" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

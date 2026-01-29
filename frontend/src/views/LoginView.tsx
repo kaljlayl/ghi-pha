@@ -1,14 +1,28 @@
 ﻿import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-const LoginView = ({ onLogin }: { onLogin: () => void }) => {
+const LoginView = () => {
+    const [username, setUsername] = useState('analyst@ghi.gov');
+    const [password, setPassword] = useState('');
     const [isScanning, setIsScanning] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { login } = useAuth();
+    const navigate = useNavigate();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsScanning(true);
-        setTimeout(() => {
-            onLogin();
-        }, 2000);
+        setError(null);
+
+        try {
+            await login(username, password);
+            // Redirect to dashboard on success
+            navigate('/dashboard');
+        } catch (err: any) {
+            setError(err.message || 'Login failed');
+            setIsScanning(false);
+        }
     };
 
     return (
@@ -59,28 +73,39 @@ const LoginView = ({ onLogin }: { onLogin: () => void }) => {
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">
+                        {error && (
+                            <div className="p-4 rounded-xl bg-ghi-critical/10 border border-ghi-critical/30">
+                                <p className="text-[10px] font-bold text-ghi-critical uppercase tracking-wider">{error}</p>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             <div className="relative group">
-                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest absolute -top-2 left-4 bg-ghi-navy px-2 z-10">Email</label>
+                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest absolute -top-2 left-4 bg-ghi-navy px-2 z-10">Username</label>
                                 <input
                                     type="text"
-                                    defaultValue="analyst@ghi.gov"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
                                     className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 text-xs font-black tracking-widest text-white focus:ring-1 ring-ghi-teal outline-none transition-all"
+                                    disabled={isScanning}
                                 />
                             </div>
                             <div className="relative group">
                                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest absolute -top-2 left-4 bg-ghi-navy px-2 z-10">Password</label>
                                 <input
                                     type="password"
-                                    defaultValue="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-white/[0.03] border border-white/10 rounded-2xl px-6 py-4 text-xs font-black tracking-widest text-white focus:ring-1 ring-ghi-teal outline-none transition-all"
+                                    disabled={isScanning}
                                 />
                             </div>
                         </div>
 
                         <button
                             type="submit"
-                            className="w-full py-5 bg-ghi-teal/10 hover:bg-ghi-teal/20 text-ghi-teal font-black text-[11px] uppercase tracking-[0.4em] rounded-2xl transition-all border border-ghi-teal/30 relative overflow-hidden group"
+                            disabled={isScanning}
+                            className="w-full py-5 bg-ghi-teal/10 hover:bg-ghi-teal/20 text-ghi-teal font-black text-[11px] uppercase tracking-[0.4em] rounded-2xl transition-all border border-ghi-teal/30 relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <span className={isScanning ? 'opacity-0' : 'opacity-100 transition-opacity'}>LOGIN</span>
                             {isScanning && (
