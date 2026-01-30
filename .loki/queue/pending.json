@@ -1,48 +1,58 @@
 {
   "queue": [
     {
-      "id": "task-2.1.1",
-      "phase": "DEVELOPMENT",
-      "subPhase": "2.1",
-      "title": "Add User model + AuditLog model",
-      "description": "Add User and AuditLog tables per spec schema",
+      "id": "task-qa-1",
+      "phase": "QA",
+      "subPhase": "map-verification",
+      "title": "Backend endpoint verification",
+      "description": "Test GET /api/v1/signals/map-data endpoint, verify response schema, check geocoding coverage",
       "priority": "CRITICAL",
-      "status": "IN_PROGRESS",
+      "status": "PENDING",
       "dependencies": [],
-      "estimatedMinutes": 30
+      "estimatedMinutes": 15,
+      "testScript": "backend/test_map_endpoint.py"
     },
     {
-      "id": "task-2.1.2",
-      "phase": "DEVELOPMENT",
-      "subPhase": "2.1",
-      "title": "Auth endpoints with JWT",
-      "description": "POST /login, POST /logout, GET /me",
+      "id": "task-qa-2",
+      "phase": "QA",
+      "subPhase": "map-verification",
+      "title": "Frontend map rendering",
+      "description": "Start dev servers, verify map loads, test cluster/heatmap toggle, check marker popups",
       "priority": "CRITICAL",
       "status": "PENDING",
-      "dependencies": ["task-2.1.1"],
-      "estimatedMinutes": 45
+      "dependencies": ["task-qa-1"],
+      "estimatedMinutes": 20,
+      "manualSteps": [
+        "cd backend && uvicorn app.main:app --reload",
+        "cd frontend && npm run dev",
+        "Navigate to http://localhost:5173",
+        "Login and view Dashboard",
+        "Verify map displays with markers",
+        "Toggle cluster/heatmap views",
+        "Click markers to test popups"
+      ]
     },
     {
-      "id": "task-2.1.3",
-      "phase": "DEVELOPMENT",
-      "subPhase": "2.1",
-      "title": "JWT middleware + RBAC",
-      "description": "OAuth2 bearer, get_current_user, require_role decorator",
-      "priority": "CRITICAL",
-      "status": "PENDING",
-      "dependencies": ["task-2.1.2"],
-      "estimatedMinutes": 30
-    },
-    {
-      "id": "task-2.1.4",
-      "phase": "DEVELOPMENT",
-      "subPhase": "2.1",
-      "title": "Frontend auth (AuthContext + Login)",
-      "description": "Auth context, login page, protected routes, JWT storage",
+      "id": "task-qa-3",
+      "phase": "QA",
+      "subPhase": "map-verification",
+      "title": "Real-time update verification",
+      "description": "Verify 20s polling updates map, test with new signal creation",
       "priority": "HIGH",
       "status": "PENDING",
-      "dependencies": ["task-2.1.3"],
-      "estimatedMinutes": 60
+      "dependencies": ["task-qa-2"],
+      "estimatedMinutes": 10
+    },
+    {
+      "id": "task-qa-4",
+      "phase": "QA",
+      "subPhase": "map-verification",
+      "title": "Performance and edge cases",
+      "description": "Check response time, test empty state, verify large dataset handling",
+      "priority": "MEDIUM",
+      "status": "PENDING",
+      "dependencies": ["task-qa-3"],
+      "estimatedMinutes": 15
     }
   ]
 }
