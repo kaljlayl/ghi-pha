@@ -187,3 +187,6 @@ nul
 
 # Local database
 ghi_system.db
+
+# Root Markdown files (Implementation docs, Agent guides, etc.)
+/*.md
