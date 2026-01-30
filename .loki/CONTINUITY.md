@@ -133,6 +133,9 @@ Implement interactive map showing disease outbreak signals with:
    - Solution: Always use backend/ as working directory
 2. **Unicode Output**: Windows console doesn't support ✓ character
    - Solution: Use ASCII characters in print statements
+3. **Venv Dependency Installation**: Installed geopy to system Python instead of venv
+   - Solution: Always use `venv/Scripts/pip install` for venv projects
+   - Fixed: Ran `venv/Scripts/pip install -r requirements.txt`
 
 ---
 

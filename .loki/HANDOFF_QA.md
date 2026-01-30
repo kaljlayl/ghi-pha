@@ -77,12 +77,21 @@ bab217e - Update CONTINUITY: Map feature complete (9/9 tasks)
 ### Step 1: Backend Verification (15 minutes)
 
 ```bash
-# Terminal 1: Start backend server
+# Terminal 1: Start backend server (with venv)
 cd backend
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+# source venv/bin/activate
+
+# Start server
 uvicorn app.main:app --reload
 
 # Terminal 2: Test endpoint
 cd backend
+venv\Scripts\activate  # Activate venv first
 python test_map_endpoint.py
 ```
 
