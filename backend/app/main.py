@@ -12,11 +12,11 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Global Health Intelligence (GHI) System")
 
-# CORS Configuration for Frontend (e.g., Cloudflare Pages)
+# CORS Configuration for Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust to specific domains in production
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

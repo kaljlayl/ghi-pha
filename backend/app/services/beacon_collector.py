@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.models.schema import Signal
 from app.services import notification_service
+from app.services.geocoding_service import geocode_signal_location
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,14 @@ class BeaconCollector:
             if cases > 0 and deaths >= 0:
                 case_fatality_rate = round((deaths / cases) * 100, 2)
 
+            # Geocode location (with cache-first DB lookup)
+            geocode_result = {}
+            try:
+                geocode_result = geocode_signal_location(country, location, db=self.db)
+            except Exception as e:
+                logger.error(f"Geocoding error for {country}, {location}: {str(e)}")
+                # Continue without geocoding - signal creation should not fail
+
             normalized_event = {
                 "beacon_event_id": beacon_event_id,
                 "source_url": source_url or self._fallback_source_url(),
@@ -188,6 +197,12 @@ class BeaconCollector:
                 "triage_status": "Pending Triage",
                 "current_status": "New",
                 "last_beacon_sync": datetime.datetime.utcnow(),
+                # Geocoding fields
+                "latitude": geocode_result.get("latitude"),
+                "longitude": geocode_result.get("longitude"),
+                "geocoded_at": geocode_result.get("geocoded_at"),
+                "geocode_source": geocode_result.get("geocode_source"),
+                "location_hash": geocode_result.get("location_hash"),
             }
             normalized.append(normalized_event)
 
