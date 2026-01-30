@@ -156,7 +156,7 @@ function AppContent() {
       <main className="flex-1 overflow-y-auto bg-ghi-navy p-8 relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_rgba(0,242,255,0.05)_0%,_transparent_50%)] pointer-events-none"></div>
 
-        <header className="flex justify-between items-center mb-10 relative z-10">
+        <header className="flex justify-between items-center mb-10 relative z-50">
           <div>
             <h2 className="text-2xl font-black text-white tracking-widest uppercase mb-1">{activeView}</h2>
             <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, List
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
@@ -117,7 +118,13 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(User).filter(User.id == user_id).first()
+    # Convert string UUID to UUID object
+    try:
+        user_uuid = UUID(user_id)
+    except ValueError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
         raise credentials_exception
 
@@ -158,7 +165,13 @@ async def get_optional_current_user(
     except JWTError:
         return None
 
-    user = db.query(User).filter(User.id == user_id).first()
+    # Convert string UUID to UUID object
+    try:
+        user_uuid = UUID(user_id)
+    except ValueError:
+        return None
+
+    user = db.query(User).filter(User.id == user_uuid).first()
     if user is None or not user.is_active:
         return None
 

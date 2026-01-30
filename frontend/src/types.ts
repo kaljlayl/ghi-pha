@@ -15,6 +15,9 @@ export type Signal = {
   current_status: string;
   created_at: string;
   updated_at: string;
+  // Geocoding fields
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type Assessment = {
@@ -78,9 +81,9 @@ export type Escalation = {
 };
 
 export type DirectorDecision = {
-  decision: 'approve' | 'reject' | 'request_more_info';
+  director_decision: 'approve' | 'reject' | 'request_more_info';
   actions_taken: string[];
-  notes: string;
+  director_notes: string;
 };
 
 export type Notification = {
@@ -97,4 +100,30 @@ export type Notification = {
   read_at?: string | null;
   priority: string;
   created_at: string;
+};
+
+// Map visualization types
+export type MapMarkerData = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  priority_score: number;
+  disease: string;
+  country: string;
+  location?: string | null;
+  cases: number;
+  deaths: number;
+  triage_status: string;
+};
+
+export type HeatmapPointData = {
+  latitude: number;
+  longitude: number;
+  intensity: number;
+};
+
+export type MapDataResponse = {
+  markers: MapMarkerData[];
+  heatmap_points: HeatmapPointData[];
+  total_signals: number;
 };

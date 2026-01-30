@@ -66,9 +66,9 @@ const EscalationCard = ({
     setSubmitError(null);
     try {
       await submitDirectorDecision(escalation.id, {
-        decision,
+        director_decision: decision,
         actions_taken: actionsTaken,
-        notes,
+        director_notes: notes,
       });
       // Success - parent will refresh list
       onSelect(); // Close the expanded view
@@ -87,11 +87,10 @@ const EscalationCard = ({
 
   return (
     <div
-      className={`glass-panel rounded-3xl border transition-all duration-500 ${
-        isExpanded
+      className={`glass-panel rounded-3xl border transition-all duration-500 ${isExpanded
           ? 'border-ghi-teal/30 shadow-[0_0_30px_rgba(0,242,255,0.1)]'
           : 'border-white/5 hover:border-ghi-blue/30'
-      } relative overflow-hidden group`}
+        } relative overflow-hidden group`}
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-ghi-teal/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-ghi-teal/10 transition-all"></div>
 

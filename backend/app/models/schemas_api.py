@@ -133,3 +133,93 @@ class EscalationDetailResponse(EscalationResponse):
     assessment: AssessmentResponse
 
     model_config = ConfigDict(from_attributes=True)
+
+class FilterOptionsResponse(BaseModel):
+    diseases: List[str]
+    locations: List[str]
+
+class UserBase(BaseModel):
+    username: str
+    email: str
+    full_name: str
+    role: str
+    department: Optional[str] = None
+    position: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    mfa_enabled: Optional[bool] = None
+
+class UserResponse(UserBase):
+    id: UUID
+    mfa_enabled: bool
+    last_login: Optional[datetime] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class NotificationResponse(BaseModel):
+    id: UUID
+    recipient_id: UUID
+    notification_type: str
+    title: str
+    message: str
+    action_url: Optional[str] = None
+    signal_id: Optional[UUID] = None
+    assessment_id: Optional[UUID] = None
+    escalation_id: Optional[UUID] = None
+    read: bool
+    read_at: Optional[datetime] = None
+    priority: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Map visualization models
+class MapMarker(BaseModel):
+    """Individual map marker for a signal"""
+    id: str
+    latitude: float
+    longitude: float
+    priority_score: float
+    disease: str
+    country: str
+    location: Optional[str] = None
+    cases: int
+    deaths: int
+    triage_status: str
+
+
+class HeatmapPoint(BaseModel):
+    """Heatmap intensity point"""
+    latitude: float
+    longitude: float
+    intensity: float  # 0-1 normalized
+
+
+class MapDataResponse(BaseModel):
+    """Map data response with markers and heatmap points"""
+    markers: List[MapMarker]
+    heatmap_points: List[HeatmapPoint]
+    total_signals: int

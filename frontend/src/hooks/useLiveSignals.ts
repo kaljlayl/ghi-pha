@@ -4,10 +4,12 @@ import type { Signal } from '../types';
 
 type UseLiveSignalsOptions = {
   status?: string;
+  disease?: string;
+  location?: string;
   pollIntervalMs?: number;
 };
 
-export const useLiveSignals = ({ status, pollIntervalMs = 30000 }: UseLiveSignalsOptions) => {
+export const useLiveSignals = ({ status, disease, location, pollIntervalMs = 30000 }: UseLiveSignalsOptions) => {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +18,7 @@ export const useLiveSignals = ({ status, pollIntervalMs = 30000 }: UseLiveSignal
   const loadSignals = useCallback(async () => {
     try {
       setError(null);
-      const data = await fetchSignals(status);
+      const data = await fetchSignals(status, disease, location);
       setSignals(data);
       setLastUpdated(new Date());
     } catch (err: any) {
@@ -24,7 +26,7 @@ export const useLiveSignals = ({ status, pollIntervalMs = 30000 }: UseLiveSignal
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, disease, location]);
 
   useEffect(() => {
     loadSignals();

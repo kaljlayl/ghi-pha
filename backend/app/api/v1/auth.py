@@ -23,13 +23,6 @@ router = APIRouter()
 
 
 # Response Models
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
-    user: "UserInfo"
-
-
 class UserInfo(BaseModel):
     id: str
     username: str
@@ -41,8 +34,27 @@ class UserInfo(BaseModel):
     is_active: bool
     last_login: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    @classmethod
+    def from_user(cls, user):
+        """Create UserInfo from User model, converting UUID to string."""
+        return cls(
+            id=str(user.id),
+            username=user.username,
+            email=user.email,
+            full_name=user.full_name,
+            role=user.role,
+            department=user.department,
+            position=user.position,
+            is_active=user.is_active,
+            last_login=user.last_login
+        )
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    user: UserInfo
 
 
 class LogoutResponse(BaseModel):
@@ -69,8 +81,10 @@ async def login(
     Raises:
         HTTPException: 401 if credentials are invalid
     """
-    # Find user by username
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Find user by username or email
+    user = db.query(User).filter(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ).first()
 
     # Verify user exists and password is correct
     if not user or not verify_password(form_data.password, user.password_hash):
@@ -103,7 +117,7 @@ async def login(
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": JWT_EXPIRATION_MINUTES * 60,  # Convert to seconds
-        "user": UserInfo.model_validate(user)
+        "user": UserInfo.from_user(user)
     }
 
 
@@ -140,7 +154,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     Returns:
         User information
     """
-    return UserInfo.model_validate(current_user)
+    return UserInfo.from_user(current_user)
 
 
 # Optional: Endpoint to refresh token (useful for long-running sessions)
@@ -165,5 +179,5 @@ async def refresh_token(current_user: User = Depends(get_current_user)):
         "access_token": access_token,
         "token_type": "bearer",
         "expires_in": JWT_EXPIRATION_MINUTES * 60,
-        "user": UserInfo.model_validate(current_user)
+        "user": UserInfo.from_user(current_user)
     }

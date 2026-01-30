@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useLiveSignals } from '../hooks/useLiveSignals';
+import SurveillanceMap from '../components/SurveillanceMap';
 
 const MetricCard = ({ label, value, trend, color }: any) => (
   <div className="glass-panel p-6 rounded-2xl border border-ghi-blue/10 relative overflow-hidden group hover:border-ghi-blue/30 transition-all duration-500">

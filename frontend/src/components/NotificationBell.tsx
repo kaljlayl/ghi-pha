@@ -95,7 +95,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-50" ref={dropdownRef}>
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -113,7 +113,7 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-h-[600px] overflow-hidden glass-panel rounded-2xl border border-ghi-blue/10 shadow-2xl z-50">
+        <div className="absolute right-0 mt-2 w-96 max-h-[600px] overflow-hidden glass-panel rounded-2xl border border-ghi-blue/10 shadow-2xl">
           {/* Header */}
           <div className="p-4 border-b border-ghi-blue/10 flex items-center justify-between">
             <div>

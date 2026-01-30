@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import type { Signal } from '../types';
 import { useLiveSignals } from '../hooks/useLiveSignals';
+import { fetchFilterOptions } from '../api/ghi';
+import type { FilterOptions } from '../api/ghi';
 
 const SignalCard = ({ signal }: { signal: Signal }) => {
   const navigate = useNavigate();
@@ -86,20 +89,55 @@ const SignalCard = ({ signal }: { signal: Signal }) => {
 };
 
 const Triage = () => {
+  const [selectedDisease, setSelectedDisease] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    diseases: [],
+    locations: []
+  });
+
   const { signals, loading, error } = useLiveSignals({
     status: 'Pending Triage',
+    disease: selectedDisease || undefined,
+    location: selectedLocation || undefined,
     pollIntervalMs: 15000,
   });
+
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const options = await fetchFilterOptions();
+        setFilterOptions(options);
+      } catch (err) {
+        console.error('Failed to load filter options:', err);
+      }
+    };
+    loadFilters();
+  }, []);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <div className="flex justify-between items-center bg-ghi-teal/5 p-4 rounded-2xl border border-ghi-teal/10">
         <div className="flex gap-4">
-          <select className="bg-ghi-navy border-white/10 text-[10px] font-black tracking-widest text-slate-400 rounded-xl px-4 py-2 focus:ring-1 ring-ghi-teal transition-all outline-none uppercase">
-            <option>ALL DISEASES</option>
+          <select
+            className="bg-ghi-navy border-white/10 text-[10px] font-black tracking-widest text-slate-400 rounded-xl px-4 py-2 focus:ring-1 ring-ghi-teal transition-all outline-none uppercase"
+            value={selectedDisease}
+            onChange={(e) => setSelectedDisease(e.target.value)}
+          >
+            <option value="">ALL DISEASES</option>
+            {filterOptions.diseases.map(disease => (
+              <option key={disease} value={disease}>{disease}</option>
+            ))}
           </select>
-          <select className="bg-ghi-navy border-white/10 text-[10px] font-black tracking-widest text-slate-400 rounded-xl px-4 py-2 focus:ring-1 ring-ghi-teal transition-all outline-none uppercase">
-            <option>ALL REGIONS</option>
+          <select
+            className="bg-ghi-navy border-white/10 text-[10px] font-black tracking-widest text-slate-400 rounded-xl px-4 py-2 focus:ring-1 ring-ghi-teal transition-all outline-none uppercase"
+            value={selectedLocation}
+            onChange={(e) => setSelectedLocation(e.target.value)}
+          >
+            <option value="">ALL REGIONS</option>
+            {filterOptions.locations.map(location => (
+              <option key={location} value={location}>{location}</option>
+            ))}
           </select>
         </div>
         <div className="flex items-center gap-3">

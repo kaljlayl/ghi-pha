@@ -38,16 +38,32 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
   return response.json();
 };
 
-export const fetchSignals = async (status?: string): Promise<Signal[]> => {
+export const fetchSignals = async (
+  status?: string,
+  disease?: string,
+  location?: string
+): Promise<Signal[]> => {
   const url = new URL(`${API_BASE_URL}/api/v1/signals`);
-  if (status) {
-    url.searchParams.set('status', status);
-  }
+  if (status) url.searchParams.set('status', status);
+  if (disease) url.searchParams.set('disease', disease);
+  if (location) url.searchParams.set('location', location);
 
   const response = await fetch(url.toString(), {
     headers: getHeaders(),
   });
   return handleResponse<Signal[]>(response);
+};
+
+export type FilterOptions = {
+  diseases: string[];
+  locations: string[];
+};
+
+export const fetchFilterOptions = async (): Promise<FilterOptions> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/signals/filters`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<FilterOptions>(response);
 };
 
 export const getSignal = async (id: string): Promise<Signal> => {
@@ -115,12 +131,12 @@ export const getEscalationDetails = async (
 
 export const submitDirectorDecision = async (
   id: string,
-  decision: DirectorDecision
+  data: DirectorDecision
 ): Promise<Escalation> => {
   const response = await fetch(`${API_BASE_URL}/api/v1/escalations/${id}/decision`, {
     method: 'PATCH',
     headers: getHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(decision),
+    body: JSON.stringify(data),
   });
   return handleResponse<Escalation>(response);
 };

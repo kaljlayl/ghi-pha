@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const LoginView = () => {
-    const [username, setUsername] = useState('analyst@ghi.gov');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -81,7 +81,7 @@ const LoginView = () => {
 
                         <div className="space-y-4">
                             <div className="relative group">
-                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest absolute -top-2 left-4 bg-ghi-navy px-2 z-10">Username</label>
+                                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest absolute -top-2 left-4 bg-ghi-navy px-2 z-10">Username or Email</label>
                                 <input
                                     type="text"
                                     value={username}

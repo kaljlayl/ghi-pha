@@ -1,5 +1,4 @@
 from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Date, ForeignKey, Text, JSON, UUID, Index
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 import uuid
 import datetime
@@ -7,6 +6,9 @@ from app.database import Base
 
 class Signal(Base):
     __tablename__ = "signals"
+    __table_args__ = (
+        Index('idx_signals_coords', 'latitude', 'longitude'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     beacon_event_id = Column(String(255), unique=True)
@@ -38,6 +40,13 @@ class Signal(Base):
     
     current_status = Column(String(50), default="New")
     
+    # Geocoding columns
+    latitude = Column(Numeric(10, 7))
+    longitude = Column(Numeric(10, 7))
+    geocoded_at = Column(DateTime(timezone=True))
+    geocode_source = Column(String(50))
+    location_hash = Column(String(32), index=True)
+
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     last_beacon_sync = Column(DateTime(timezone=True))
@@ -169,8 +178,8 @@ class AuditLog(Base):
     user_id = Column(UUID(as_uuid=True), index=True)
     user_role = Column(String(50))
     description = Column(Text)
-    old_value = Column(JSONB)
-    new_value = Column(JSONB)
+    old_value = Column(JSON)
+    new_value = Column(JSON)
     ip_address = Column(String)
     timestamp = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, index=True)
 
