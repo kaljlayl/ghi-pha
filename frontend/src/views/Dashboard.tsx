@@ -32,7 +32,7 @@ const formatRelativeTime = (value?: string) => {
 };
 
 const Dashboard = () => {
-  const { signals, loading, error, lastUpdated } = useLiveSignals({ pollIntervalMs: 20000 });
+  const { signals, loading, error } = useLiveSignals({ pollIntervalMs: 20000 });
 
   const summary = useMemo(() => {
     const totalSignals = signals.length;
@@ -79,20 +79,9 @@ const Dashboard = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Map Placeholder */}
-        <div className="lg:col-span-2 glass-panel rounded-3xl aspect-video border border-ghi-blue/10 relative overflow-hidden flex items-center justify-center group shadow-2xl shadow-ghi-teal/5">
-          <div className="absolute inset-0 bg-ghi-navy/50 backdrop-blur-sm z-0"></div>
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(0,242,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(0,242,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black,transparent)]"></div>
-
-          <div className="relative z-10 text-center">
-            <div className="w-16 h-16 border-2 border-ghi-teal/20 border-t-ghi-teal rounded-full animate-spin mb-6 mx-auto shadow-[0_0_15px_rgba(0,242,255,0.2)]"></div>
-            <p className="text-ghi-teal font-black text-xs tracking-[0.3em] uppercase neon-text">
-              Live Surveillance Matrix
-            </p>
-            <p className="text-slate-500 text-[10px] mt-2 font-bold uppercase tracking-widest">
-              {lastUpdated ? `Last sync ${formatRelativeTime(lastUpdated.toISOString())}` : 'Awaiting sync'}
-            </p>
-          </div>
+        {/* Live Surveillance Map */}
+        <div className="lg:col-span-2">
+          <SurveillanceMap signals={signals} height="500px" />
         </div>
 
         {/* Sidebar Data */}

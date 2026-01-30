@@ -1,4 +1,4 @@
-import type { Signal, Assessment, Escalation, DirectorDecision } from '../types';
+import type { Signal, Assessment, Escalation, DirectorDecision, MapDataResponse } from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const AUTH_TOKEN_KEY = 'ghi_auth_token';
@@ -147,4 +147,11 @@ export const pollBeacon = async (): Promise<{ message: string }> => {
     headers: getHeaders(),
   });
   return handleResponse<{ message: string }>(response);
+};
+
+export const fetchMapData = async (): Promise<MapDataResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/signals/map-data`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<MapDataResponse>(response);
 };
