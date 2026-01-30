@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Signal } from '../types';
+import type { MapMarkerData } from '../types';
 
 interface SurveillanceMapProps {
-  signals: Signal[];
+  signals: MapMarkerData[];
   height?: string;
 }
 
@@ -86,7 +86,7 @@ function MapLegend() {
 }
 
 // Auto-fit bounds hook
-function AutoFitBounds({ signals }: { signals: Signal[] }) {
+function AutoFitBounds({ signals }: { signals: MapMarkerData[] }) {
   const map = useMap();
 
   useEffect(() => {
@@ -103,6 +103,20 @@ function AutoFitBounds({ signals }: { signals: Signal[] }) {
 
 export default function SurveillanceMap({ signals, height = '600px' }: SurveillanceMapProps) {
   const [viewMode, setViewMode] = useState<'cluster' | 'heatmap'>('cluster');
+  const mapRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const map = mapRef.current;
+      if (!map) return;
+      const container = map.getContainer();
+      map.remove();
+      if ((container as any)._leaflet_id) {
+        delete (container as any)._leaflet_id;
+      }
+      mapRef.current = null;
+    };
+  }, []);
 
   // Filter signals with valid coordinates
   const validSignals = useMemo(
@@ -128,7 +142,7 @@ export default function SurveillanceMap({ signals, height = '600px' }: Surveilla
   }
 
   return (
-    <div className="relative w-full" style={{ height }}>
+    <div className="relative w-full glass-panel rounded-3xl border border-ghi-blue/20 overflow-hidden" style={{ height }}>
       {/* View toggle controls */}
       <div className="absolute top-4 left-4 z-[1000] flex gap-2">
         <button
@@ -173,6 +187,9 @@ export default function SurveillanceMap({ signals, height = '600px' }: Surveilla
         zoomAnimation={true}
         fadeAnimation={true}
         markerZoomAnimation={true}
+        whenCreated={(map) => {
+          mapRef.current = map;
+        }}
       >
         {/* CartoDB Dark Matter tiles */}
         <TileLayer

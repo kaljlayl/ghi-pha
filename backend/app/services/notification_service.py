@@ -1,6 +1,7 @@
 import datetime
 import logging
 from typing import List
+from uuid import UUID
 from sqlalchemy.orm import Session
 from app.models.schema import Notification, Signal, Assessment, Escalation, User
 
@@ -67,7 +68,7 @@ def notify_escalation_created(escalation: Escalation, db: Session):
     logger.info(f"Created escalation notifications for {len(directors)} directors for escalation {escalation.id}")
 
 
-def notify_assessment_assigned(assessment: Assessment, assignee_id: str, db: Session):
+def notify_assessment_assigned(assessment: Assessment, assignee_id: UUID, db: Session):
     """Notify a specific user when an assessment is assigned to them."""
     # Get user
     user = db.query(User).filter(User.id == assignee_id).first()
@@ -100,7 +101,7 @@ def notify_assessment_assigned(assessment: Assessment, assignee_id: str, db: Ses
     logger.info(f"Created assessment assignment notification for user {assignee_id}")
 
 
-def get_user_notifications(user_id: str, db: Session, limit: int = 50, unread_only: bool = False) -> List[Notification]:
+def get_user_notifications(user_id: UUID, db: Session, limit: int = 50, unread_only: bool = False) -> List[Notification]:
     """Get notifications for a specific user."""
     query = db.query(Notification).filter(Notification.recipient_id == user_id)
 
@@ -110,7 +111,7 @@ def get_user_notifications(user_id: str, db: Session, limit: int = 50, unread_on
     return query.order_by(Notification.created_at.desc()).limit(limit).all()
 
 
-def get_unread_count(user_id: str, db: Session) -> int:
+def get_unread_count(user_id: UUID, db: Session) -> int:
     """Get count of unread notifications for a user."""
     return db.query(Notification).filter(
         Notification.recipient_id == user_id,
@@ -118,7 +119,7 @@ def get_unread_count(user_id: str, db: Session) -> int:
     ).count()
 
 
-def mark_notification_read(notification_id: str, user_id: str, db: Session) -> bool:
+def mark_notification_read(notification_id: UUID, user_id: UUID, db: Session) -> bool:
     """Mark a notification as read."""
     notification = db.query(Notification).filter(
         Notification.id == notification_id,
@@ -135,7 +136,7 @@ def mark_notification_read(notification_id: str, user_id: str, db: Session) -> b
     return True
 
 
-def mark_all_notifications_read(user_id: str, db: Session) -> int:
+def mark_all_notifications_read(user_id: UUID, db: Session) -> int:
     """Mark all notifications as read for a user."""
     count = db.query(Notification).filter(
         Notification.recipient_id == user_id,

@@ -114,6 +114,7 @@ export type MapMarkerData = {
   cases: number;
   deaths: number;
   triage_status: string;
+  date_reported: string;
 };
 
 export type HeatmapPointData = {
@@ -126,4 +127,13 @@ export type MapDataResponse = {
   markers: MapMarkerData[];
   heatmap_points: HeatmapPointData[];
   total_signals: number;
+};
+
+export type ScraperStatus = {
+  is_active: boolean;
+  last_sync_at: string | null;
+  last_sync_error: string | null;
+  last_sync_count: number;
+  next_allowed_sync_at: string | null;
+  can_sync_now: boolean;
 };

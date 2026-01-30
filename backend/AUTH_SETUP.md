@@ -53,14 +53,14 @@ Create test users for development:
 
 ```bash
 cd backend
-python seed_users.py
+python -m app.seed_users
 ```
 
 This creates:
-- `admin` / `admin123` (Admin)
-- `director` / `director123` (Director)
-- `senior_analyst` / `senior123` (Senior Analyst)
-- `analyst` / `analyst123` (Analyst)
+- `admin` / `password123` (Admin)
+- `director` / `password123` (Director)
+- `senior_analyst` / `password123` (Senior Analyst)
+- `analyst` / `password123` (Analyst)
 
 ## API Endpoints
 
@@ -140,7 +140,7 @@ The following endpoints remain accessible without authentication:
 # 1. Login
 TOKEN=$(curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=admin123" | jq -r .access_token)
+  -d "username=admin&password=password123" | jq -r .access_token)
 
 # 2. Use token in requests
 curl http://localhost:8000/api/v1/auth/me \
@@ -154,7 +154,7 @@ import requests
 # Login
 response = requests.post(
     "http://localhost:8000/api/v1/auth/login",
-    data={"username": "admin", "password": "admin123"}
+    data={"username": "admin", "password": "password123"}
 )
 token = response.json()["access_token"]
 
@@ -173,7 +173,7 @@ print(response.json())
 const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: 'username=admin&password=admin123'
+  body: 'username=admin&password=password123'
 });
 const { access_token } = await loginResponse.json();
 

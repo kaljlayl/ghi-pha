@@ -6,18 +6,18 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, List
 from uuid import UUID
+import logging
 
+import bcrypt
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.schema import User
+from app.models.schema import User, AuditLog
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -31,14 +31,34 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "1440"))  # 24 hours default
 
 
+def log_auth_failure(db: Session, request: Optional[Request], user_id: Optional[str], reason: str):
+    """Log failed authentication attempt to audit table."""
+    try:
+        audit_entry = AuditLog(
+            action_type="AUTH_FAILURE",
+            entity_type="User",
+            entity_id=UUID(user_id) if user_id else None,
+            user_id=UUID(user_id) if user_id else None,
+            description=reason,
+            ip_address=request.client.host if request and request.client else None,
+            timestamp=datetime.utcnow()
+        )
+        db.add(audit_entry)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log auth failure: {e}")
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password for storing."""
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -114,21 +134,26 @@ async def get_current_user(
         payload = decode_access_token(token)
         user_id: str = payload.get("sub")
         if user_id is None:
+            log_auth_failure(db, None, None, "Missing user ID in token")
             raise credentials_exception
     except JWTError:
+        log_auth_failure(db, None, None, "Invalid JWT token")
         raise credentials_exception
 
     # Convert string UUID to UUID object
     try:
         user_uuid = UUID(user_id)
     except ValueError:
+        log_auth_failure(db, None, user_id, "Invalid UUID format")
         raise credentials_exception
 
     user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
+        log_auth_failure(db, None, str(user_uuid), "User not found")
         raise credentials_exception
 
     if not user.is_active:
+        log_auth_failure(db, None, str(user_uuid), "Inactive user account")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"

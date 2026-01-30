@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import httpx
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,9 @@ DROP_KEYWORDS = {"name", "email", "phone", "mobile", "contact", "address", "pati
 
 class BeaconCollector:
     _last_sync_at: Optional[datetime.datetime] = None
+    _sync_in_progress: bool = False
+    _last_sync_error: Optional[str] = None
+    _last_sync_count: int = 0
 
     def __init__(self, db: Session):
         self.db = db
@@ -39,43 +43,86 @@ class BeaconCollector:
         if self._should_skip_poll():
             return 0
 
-        logger.info("Polling WHO Beacon via scraper service...")
-        BeaconCollector._last_sync_at = datetime.datetime.utcnow()
-        events = self._scrape_events()
-        normalized = self._normalize_events(events)
+        BeaconCollector._sync_in_progress = True
+        try:
+            logger.info("Polling WHO Beacon via scraper service...")
+            BeaconCollector._last_sync_at = datetime.datetime.utcnow()
+            events = self._scrape_events()
+            normalized = self._normalize_events(events)
 
-        new_count = 0
-        for event in normalized:
-            if not self._is_duplicate(event):
-                self._create_signal(event)
-                new_count += 1
+            new_count = 0
+            for event in normalized:
+                if not self._is_duplicate(event):
+                    self._create_signal(event)
+                    new_count += 1
 
-        self.db.commit()
-        logger.info("Poll complete. Found %s new signals.", new_count)
-        return new_count
+            self.db.commit()
+            logger.info("Poll complete. Found %s new signals.", new_count)
+
+            BeaconCollector._last_sync_count = new_count
+            BeaconCollector._last_sync_error = None
+            return new_count
+        except Exception as e:
+            BeaconCollector._last_sync_error = str(e)
+            logger.error(f"Beacon sync failed: {e}")
+            raise
+        finally:
+            BeaconCollector._sync_in_progress = False
 
     def _scrape_events(self) -> List[Dict[str, Any]]:
         html = self._fetch_beacon_html()
         return self._parse_events(html)
 
     def _fetch_beacon_html(self) -> str:
-        params = {
-            "path": self.beacon_path,
-            "render": "1" if self.render else "0",
-            "wait": self.wait,
-            "timeout": str(self.timeout_ms),
-        }
-        url = f"{self.scraper_base_url}/beaconbio"
+        # Direct connection to the target site using Playwright
+        base_url = os.getenv("BEACON_BASE_URL", "https://beaconbio.org")
+        url = f"{base_url}{self.beacon_path}"
+        logger.info(f"Navigating to {url} with Playwright...")
+
+        browser = None
         try:
-            response = httpx.get(url, params=params, timeout=self.timeout_ms / 1000)
-            response.raise_for_status()
-            return response.text
-        except httpx.RequestError as exc:
-            logger.error("Scraper request failed: %s", exc)
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context()
+                page = context.new_page()
+
+                # Navigate and wait for network idle to ensure initial load
+                page.goto(url, wait_until=self.wait if self.wait in ["load", "domcontentloaded", "networkidle"] else "networkidle")
+
+                # Scroll to bottom to trigger lazy loading
+                # We'll do a few scrolls to ensure we get a good amount of data
+                # The user's example did one scroll, but real infinite scrolls might need more.
+                # Sticking to the user's example pattern but adding a small loop for robustness if needed.
+                # For now, following the user's explicit example:
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+
+                # Wait for potential new content.
+                # The user's example waited for a specific selector.
+                # Since we don't know the exact selector for new items definitively without seeing the live site,
+                # we'll wait for a generic short timeout or network idle again.
+                # However, to match the user's specific request "Wait for the data to actually appear",
+                # and knowing the structure from _parse_events (looking for article, .event-card, etc),
+                # we can try to wait for one of those if they are loaded dynamically.
+                # But if the page starts empty, we need to wait for at least one.
+                # If the page has initial data, this wait might return immediately.
+                # A safe bet is waiting for a short period for network requests to settle after scroll.
+                try:
+                    page.wait_for_load_state("networkidle", timeout=5000)
+                except Exception:
+                    logger.warning("Network idle timeout after scroll, proceeding with captured content.")
+
+                content = page.content()
+                return content
+        except Exception as e:
+            logger.error(f"Playwright scraping failed: {e}")
             return ""
-        except httpx.HTTPStatusError as exc:
-            logger.error("Scraper returned HTTP %s", exc.response.status_code)
-            return ""
+        finally:
+            # Always close browser to prevent resource leak
+            if browser:
+                try:
+                    browser.close()
+                except Exception as close_err:
+                    logger.warning(f"Failed to close browser: {close_err}")
 
     def _parse_events(self, html: str) -> List[Dict[str, Any]]:
         if not html:
@@ -97,7 +144,45 @@ class BeaconCollector:
                 continue
             candidates.extend(self._extract_event_candidates(data))
 
-        # Strategy 2: DOM-based cards (fallback)
+        # Strategy 2: Beacon Material-UI structure (event links in h2)
+        if not candidates:
+            event_links = soup.find_all("a", href=lambda h: h and "/event/" in h)
+            for link in event_links:
+                # Title is in the link text, format: "Disease, Country"
+                title_text = link.get_text().strip()
+                if not title_text or "," not in title_text:
+                    continue
+
+                # Parse title: "Disease, Country"
+                parts = title_text.split(",", 1)
+                disease = parts[0].strip()
+                country = parts[1].strip() if len(parts) > 1 else ""
+
+                # Find the container (parent of h2 that contains the link)
+                h2 = link.find_parent("h2")
+                if not h2:
+                    continue
+                container = h2.find_parent()
+
+                # Description is in the p tag after h2
+                description = None
+                if container:
+                    p_tag = container.find("p")
+                    if p_tag:
+                        description = p_tag.get_text().strip()
+
+                # Extract source URL
+                source_url = link.get("href", "")
+
+                if disease and country:
+                    candidates.append({
+                        "disease": disease,
+                        "country": country,
+                        "description": description,
+                        "source_url": source_url,
+                    })
+
+        # Strategy 3: Generic DOM-based cards (fallback)
         if not candidates:
             card_selectors = [
                 "[data-event-id]",
@@ -176,8 +261,19 @@ class BeaconCollector:
             try:
                 geocode_result = geocode_signal_location(country, location, db=self.db)
             except Exception as e:
-                logger.error(f"Geocoding error for {country}, {location}: {str(e)}")
-                # Continue without geocoding - signal creation should not fail
+                logger.error(f"Geocoding failed for {country}, {location}: {str(e)}")
+                # Fallback: try country-only geocoding
+                try:
+                    geocode_result = geocode_signal_location(country, None, db=self.db)
+                    logger.info(f"Using country-level fallback for {country}")
+                except Exception as fallback_err:
+                    logger.error(f"Country-level geocoding also failed: {fallback_err}")
+                    # Mark for manual review
+                    geocode_result = {
+                        "latitude": None,
+                        "longitude": None,
+                        "geocode_source": "FAILED - manual review needed"
+                    }
 
             normalized_event = {
                 "beacon_event_id": beacon_event_id,
@@ -318,6 +414,22 @@ class BeaconCollector:
         if last_db and last_mem:
             return max(last_db, last_mem)
         return last_db or last_mem
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current scraper status and last sync information."""
+        last_sync = self._get_last_sync_at()
+        next_allowed = None
+        if last_sync:
+            min_interval = datetime.timedelta(minutes=self.min_interval_minutes)
+            next_allowed = last_sync + min_interval
+
+        return {
+            "is_active": BeaconCollector._sync_in_progress,
+            "last_sync_at": last_sync,
+            "last_sync_error": BeaconCollector._last_sync_error,
+            "last_sync_count": BeaconCollector._last_sync_count,
+            "next_allowed_sync_at": next_allowed,
+        }
 
     def _is_duplicate(self, event: Dict[str, Any]) -> bool:
         beacon_event_id = event.get("beacon_event_id")

@@ -168,3 +168,22 @@ Thumbs.db
 # Project specific
 backend/ghi_system.db
 backend/.env
+backend/.credentials/
+
+# Debug and diagnostic scripts
+debug_*.py
+diagnose_*.py
+
+# Test and seed scripts
+backend/create_test_*.py
+backend/delete_test_*.py
+backend/seed_*.py
+
+# Session management
+.loki/
+
+# Windows null device files
+nul
+
+# Local database
+ghi_system.db

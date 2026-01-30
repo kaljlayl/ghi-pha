@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useLiveSignals } from '../hooks/useLiveSignals';
+import { useMapData } from '../hooks/useMapData';
 import SurveillanceMap from '../components/SurveillanceMap';
+import ScraperStatusCard from '../components/ScraperStatusCard';
 
 const MetricCard = ({ label, value, trend, color }: any) => (
   <div className="glass-panel p-6 rounded-2xl border border-ghi-blue/10 relative overflow-hidden group hover:border-ghi-blue/30 transition-all duration-500">
@@ -33,6 +35,7 @@ const formatRelativeTime = (value?: string) => {
 
 const Dashboard = () => {
   const { signals, loading, error } = useLiveSignals({ pollIntervalMs: 20000 });
+  const { mapData } = useMapData(20000);
 
   const summary = useMemo(() => {
     const totalSignals = signals.length;
@@ -60,7 +63,8 @@ const Dashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <ScraperStatusCard />
         <MetricCard label="Global Signals" value={summary.totalSignals} trend="LIVE" color="teal" />
         <MetricCard label="Pending Triage" value={summary.pendingTriage} trend="LIVE" color="red" />
         <MetricCard label="Active Assessments" value={summary.activeAssessments} trend="LIVE" color="teal" />
@@ -81,7 +85,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Live Surveillance Map */}
         <div className="lg:col-span-2">
-          <SurveillanceMap signals={signals} height="500px" />
+          <SurveillanceMap signals={mapData?.markers || []} height="calc(100vh - 280px)" />
         </div>
 
         {/* Sidebar Data */}

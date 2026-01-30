@@ -209,6 +209,7 @@ class MapMarker(BaseModel):
     cases: int
     deaths: int
     triage_status: str
+    date_reported: date
 
 
 class HeatmapPoint(BaseModel):
@@ -223,3 +224,13 @@ class MapDataResponse(BaseModel):
     markers: List[MapMarker]
     heatmap_points: List[HeatmapPoint]
     total_signals: int
+
+
+class ScraperStatusResponse(BaseModel):
+    """Scraper status and last sync information"""
+    is_active: bool
+    last_sync_at: Optional[datetime] = None
+    last_sync_error: Optional[str] = None
+    last_sync_count: int = 0
+    next_allowed_sync_at: Optional[datetime] = None
+    can_sync_now: bool

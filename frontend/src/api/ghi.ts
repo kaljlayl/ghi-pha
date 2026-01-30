@@ -1,4 +1,4 @@
-import type { Signal, Assessment, Escalation, DirectorDecision, MapDataResponse } from '../types';
+import type { Signal, Assessment, Escalation, DirectorDecision, MapDataResponse, ScraperStatus } from '../types';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const AUTH_TOKEN_KEY = 'ghi_auth_token';
@@ -154,4 +154,19 @@ export const fetchMapData = async (): Promise<MapDataResponse> => {
     headers: getHeaders(),
   });
   return handleResponse<MapDataResponse>(response);
+};
+
+export const fetchScraperStatus = async (): Promise<ScraperStatus> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/signals/scraper-status`, {
+    headers: getHeaders(),
+  });
+  return handleResponse<ScraperStatus>(response);
+};
+
+export const triggerManualSync = async (): Promise<{ message: string; status: string }> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/signals/poll-beacon`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  return handleResponse<{ message: string; status: string }>(response);
 };

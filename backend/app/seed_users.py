@@ -8,7 +8,9 @@ Usage:
 
 import uuid
 import bcrypt
+import sys
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
 from app.models.schema import Base, User
@@ -21,41 +23,65 @@ def hash_password(password: str) -> str:
     return hashed.decode('utf-8')
 
 
+def load_credentials():
+    """Load usernames and passwords from gitignored credential files."""
+    creds_dir = Path(__file__).parent.parent / ".credentials"
+
+    # Validate directory exists
+    if not creds_dir.exists():
+        raise FileNotFoundError(
+            f"Credentials directory not found: {creds_dir}\n"
+            "Create .credentials/ with usernames.txt and passwords.txt"
+        )
+
+    # Read usernames
+    usernames_file = creds_dir / "usernames.txt"
+    if not usernames_file.exists():
+        raise FileNotFoundError(f"Missing {usernames_file}")
+
+    with open(usernames_file) as f:
+        usernames = [line.strip() for line in f if line.strip()]
+
+    # Read passwords
+    passwords_file = creds_dir / "passwords.txt"
+    if not passwords_file.exists():
+        raise FileNotFoundError(f"Missing {passwords_file}")
+
+    with open(passwords_file) as f:
+        passwords = [line.strip() for line in f if line.strip()]
+
+    # Validate counts match
+    if len(usernames) != len(passwords):
+        raise ValueError(
+            f"Credential mismatch: {len(usernames)} usernames vs {len(passwords)} passwords"
+        )
+
+    return usernames, passwords
+
+
 def create_seed_users(db: Session):
     """Create seed users for testing."""
 
-    # Default password for all test users
-    default_password = "password123"
-    password_hash = hash_password(default_password)
+    print("\n=== Seeding Test Users ===")
 
+    # Load credentials from files
+    try:
+        usernames, passwords = load_credentials()
+    except (FileNotFoundError, ValueError) as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
+
+    # User data template (roles, departments, etc.)
     seed_users = [
         {
             "id": uuid.uuid4(),
             "username": "admin",
-            "email": "admin@ghi.sa",
             "full_name": "System Administrator",
             "role": "Admin",
             "department": "IT",
             "position": "System Administrator",
             "phone": "+966-11-1234567",
             "mobile": "+966-50-1234567",
-            "password_hash": password_hash,
-            "mfa_enabled": False,
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        },
-        {
-            "id": uuid.uuid4(),
-            "username": "analyst",
-            "email": "analyst@ghi.sa",
-            "full_name": "Ahmed Al-Rashid",
-            "role": "Analyst",
-            "department": "Public Health Intelligence",
-            "position": "Public Health Analyst",
-            "phone": "+966-11-2345678",
-            "mobile": "+966-50-2345678",
-            "password_hash": password_hash,
             "mfa_enabled": False,
             "is_active": True,
             "created_at": datetime.utcnow(),
@@ -64,14 +90,12 @@ def create_seed_users(db: Session):
         {
             "id": uuid.uuid4(),
             "username": "director",
-            "email": "director@ghi.sa",
             "full_name": "Dr. Fatima Al-Zahrani",
             "role": "Director",
             "department": "Public Health Intelligence",
             "position": "Director of Public Health Intelligence",
             "phone": "+966-11-3456789",
             "mobile": "+966-50-3456789",
-            "password_hash": password_hash,
             "mfa_enabled": False,
             "is_active": True,
             "created_at": datetime.utcnow(),
@@ -80,20 +104,42 @@ def create_seed_users(db: Session):
         {
             "id": uuid.uuid4(),
             "username": "senior_analyst",
-            "email": "senior.analyst@ghi.sa",
             "full_name": "Mohammed Al-Ghamdi",
             "role": "Senior Analyst",
             "department": "Public Health Intelligence",
             "position": "Senior Public Health Analyst",
             "phone": "+966-11-4567890",
             "mobile": "+966-50-4567890",
-            "password_hash": password_hash,
+            "mfa_enabled": False,
+            "is_active": True,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        },
+        {
+            "id": uuid.uuid4(),
+            "username": "analyst",
+            "full_name": "Ahmed Al-Rashid",
+            "role": "Analyst",
+            "department": "Public Health Intelligence",
+            "position": "Public Health Analyst",
+            "phone": "+966-11-2345678",
+            "mobile": "+966-50-2345678",
             "mfa_enabled": False,
             "is_active": True,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
     ]
+
+    # Match credentials to users
+    for i, user_data in enumerate(seed_users):
+        if i >= len(usernames):
+            print(f"Warning: Not enough credentials for user {i+1}")
+            break
+
+        # Set email and hash password from credential files
+        user_data["email"] = usernames[i]
+        user_data["password_hash"] = hash_password(passwords[i])
 
     # Check if users already exist
     existing_users = db.query(User).filter(
@@ -111,14 +157,11 @@ def create_seed_users(db: Session):
     for user_data in seed_users:
         user = User(**user_data)
         db.add(user)
-        print(f"  + {user_data['username']} ({user_data['role']}) - {user_data['email']}")
+        # Only log username and role - NO passwords printed
+        print(f"  Created: {user_data['role']} - {user_data['email']}")
 
     db.commit()
-    print(f"\n✓ Successfully created {len(seed_users)} users")
-    print(f"\nDefault password for all users: {default_password}")
-    print("\nTest credentials:")
-    for user_data in seed_users:
-        print(f"  - {user_data['username']} / {default_password} ({user_data['role']})")
+    print(f"\n✅ Seeded {len(seed_users)} users successfully")
 
 
 def main():
@@ -136,7 +179,7 @@ def main():
     try:
         create_seed_users(db)
     except Exception as e:
-        print(f"\n✗ Error: {e}")
+        print(f"\n[ERROR] Error: {e}")
         db.rollback()
         raise
     finally:
