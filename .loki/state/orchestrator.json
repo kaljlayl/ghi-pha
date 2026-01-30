@@ -18,7 +18,15 @@
   ],
   "currentSubPhase": "Interactive Map Feature - QA Verification",
   "estimatedCompletion": "1 day",
-  "blockers": [],
+  "blockers": [
+    {
+      "id": "blocker-qa-1",
+      "description": "Cannot start persistent server in Windows bash - requires human to run QA manually",
+      "severity": "MEDIUM",
+      "workaround": "Human executes QA steps from HANDOFF_QA.md",
+      "blockedTasks": ["task-qa-1", "task-qa-2", "task-qa-3", "task-qa-4"]
+    }
+  ],
   "lastFeatureCompleted": "Interactive Surveillance Map with Geocoding",
   "commitsThisSession": [
     "8ae0844 - Auth system (JWT, RBAC, login flow)",

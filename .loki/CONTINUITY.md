@@ -97,9 +97,24 @@ Implement interactive map showing disease outbreak signals with:
 
 ## Active Tasks (RARV Cycle)
 
-### REASON: Map Feature Complete - Next Phase
+### REASON: QA Blocked - Server Persistence Issue
 
-Map implementation verified complete. All commits atomic. Ready for QA testing.
+**Blocker:** Cannot start persistent uvicorn server in Windows bash environment for automated testing.
+**Impact:** QA task-qa-1 (backend endpoint verification) requires manual execution.
+**Workaround:** Human must manually start servers and execute QA checklist.
+
+**Automated verifications completed:**
+- ✓ Frontend build successful (no TypeScript errors)
+- ✓ Database schema verified (geocoding columns exist)
+- ✓ 5 signals geocoded and cached
+- ✓ All dependencies installed correctly
+- ✓ Test script created (encoding fixed for Windows)
+
+**Requiring manual verification:**
+- Backend API endpoint response
+- Frontend map rendering
+- Real-time polling behavior
+- Performance benchmarks
 
 ---
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Test script to verify map endpoint functionality"""
 
 import requests
 import json
+import sys
 
 def test_map_endpoint():
     """Test the /api/v1/signals/map-data endpoint"""
@@ -14,7 +16,7 @@ def test_map_endpoint():
 
         if response.status_code == 200:
             data = response.json()
-            print(f"✓ Success! Status: {response.status_code}")
+            print(f"[OK] Success! Status: {response.status_code}")
             print(f"  Markers: {len(data.get('markers', []))}")
             print(f"  Heatmap points: {len(data.get('heatmap_points', []))}")
             print(f"  Total signals: {data.get('total_signals', 0)}")
@@ -29,16 +31,16 @@ def test_map_endpoint():
 
             return True
         else:
-            print(f"✗ Failed! Status: {response.status_code}")
+            print(f"[FAIL] Status: {response.status_code}")
             print(f"  Response: {response.text}")
             return False
 
     except requests.exceptions.ConnectionError:
-        print("✗ Connection refused - is the server running?")
+        print("[FAIL] Connection refused - is the server running?")
         print("  Start with: uvicorn app.main:app --reload")
         return False
     except Exception as e:
-        print(f"✗ Error: {e}")
+        print(f"[FAIL] Error: {e}")
         return False
 
 if __name__ == "__main__":
